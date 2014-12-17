@@ -72,7 +72,19 @@ PERL	:= perl
 # Compiler flags
 # -fno-builtin is required to avoid refs to undefined functions in the kernel.
 # Only optimize to -O1 to discourage inlining, which complicates backtraces.
-CFLAGS	:= $(CFLAGS) $(DEFS) $(LABDEFS) -O -fno-builtin -I$(TOP) -MD -Wall -Wno-format -Wno-unused -Werror -gstabs
+CFLAGS	:= $(CFLAGS) $(DEFS) $(LABDEFS) -O -fno-builtin -I$(TOP) -MD -Wall -Wno-format -Wno-unused -Werror -gstabs -m32
+CFLAGS += -fno-omit-frame-pointer
+# -fno-tree-ch prevented gcc from sometimes reordering read_ebp() before
+# mon_backtrace()'s function prologue on gcc version: (Debian 4.7.2-5) 4.7.2
+CFLAGS += -fno-tree-ch
+
+# Add -fno-stack-protector if the option exists.
+CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
+
+# Common linker flags
+LDFLAGS := -m elf_i386
+
+GCC_LIB := $(shell $(CC) $(CFLAGS) -print-libgcc-file-name)
 
 # Linker flags for JOS user programs
 ULDFLAGS := -T user/user.ld
@@ -96,17 +108,15 @@ all:
 KERN_CFLAGS := $(CFLAGS) -DJOS_KERNEL -gstabs
 USER_CFLAGS := $(CFLAGS) -DJOS_USER -gstabs
 
-
-
+IMAGE = $(OBJDIR)/kern/kernel.img
 
 # Include Makefrags for subdirectories
 include boot/Makefrag
 include kern/Makefrag
 
 
-IMAGES = $(OBJDIR)/kern/bochs.img
 
-bochs: $(IMAGES)
+bochs: $(IMAGE)
 	bochs 'display_library: nogui'
 
 # For deleting the build
@@ -133,13 +143,13 @@ tarball: realclean
 
 # For test runs
 run-%:
-	$(V)rm -f $(OBJDIR)/kern/init.o $(IMAGES)
-	$(V)$(MAKE) "DEFS=-DTEST=_binary_obj_user_$*_start -DTESTSIZE=_binary_obj_user_$*_size" $(IMAGES)
+	$(V)rm -f $(OBJDIR)/kern/init.o $(IMAGE)
+	$(V)$(MAKE) "DEFS=-DTEST=_binary_obj_user_$*_start -DTESTSIZE=_binary_obj_user_$*_size" $(IMAGE)
 	bochs -q 'display_library: nogui'
 
 xrun-%:
-	$(V)rm -f $(OBJDIR)/kern/init.o $(IMAGES)
-	$(V)$(MAKE) "DEFS=-DTEST=_binary_obj_user_$*_start -DTESTSIZE=_binary_obj_user_$*_size" $(IMAGES)
+	$(V)rm -f $(OBJDIR)/kern/init.o $(IMAGE)
+	$(V)$(MAKE) "DEFS=-DTEST=_binary_obj_user_$*_start -DTESTSIZE=_binary_obj_user_$*_size" $(IMAGE)
 	bochs -q
 
 # This magic automatically generates makefile dependencies
