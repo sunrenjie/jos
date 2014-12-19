@@ -1,0 +1,27 @@
+# Configuration for running JOS under bochs-2.4.6
+romimage: file=$BXSHARE/BIOS-bochs-latest
+cpu: count=1, ips=50000000, reset_on_triple_fault=1, ignore_bad_msrs=1, msrs="msrs.def"
+cpuid: mmx=1, sep=1, sse=sse4_2, xapic=1, aes=1, movbe=1, xsave=1
+cpuid: stepping=5
+cpuid: cpuid_limit_winnt=0
+memory: guest=512, host=256
+vgaromimage: file=$BXSHARE/VGABIOS-lgpl-latest
+vga: extension=vbe
+ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
+ata0-master: type=disk, mode=flat, path="obj/kern/kernel.img", cylinders=100, heads=10, spt=10
+boot: disk
+floppy_bootsig_check: disabled=0
+log: bochs.log
+panic: action=ask
+error: action=report
+info: action=report
+debug: action=ignore
+debugger_log: -
+parport1: enabled=1, file="bochs.parport.log"
+vga_update_interval: 300000
+keyboard_serial_delay: 250
+keyboard_paste_delay: 100000
+mouse: enabled=0
+private_colormap: enabled=0
+keyboard_mapping: enabled=0, map=
+i440fxsupport: enabled=1

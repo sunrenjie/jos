@@ -170,9 +170,47 @@ print-qemu:
 print-gdbport:
 	@echo $(GDBPORT)
 
+BOCHSRC := .bochsrc
 
-bochs: $(IMAGE)
-	bochs 'display_library: nogui'
+$(BOCHSRC): $(BOCHSRC).tmpl
+	cat < $^ > $@
+
+$(BOCHSRC)-gdb: $(BOCHSRC).tmpl
+	cat < $^ > $@
+	echo "gdbstub: enabled=1, port=$(GDBPORT), text_base=0, data_base=0, bss_base=0" >> $@
+
+# XXX: explicit documentation/notice for the following:
+# Now that support of internal debugger and that of gdb are mutually exclusive
+# as configure options while compiling, and that bochs compiled with gdb
+# support can still run in non-debugging mode, it is recommended to compile
+# two versions of bochs with different names, based on configure options:
+# 1. The one configured with --enable-debugger
+#    This version has internal debugger enabled and is named 'bochs-dbg'
+# 2. The one configured with --enable-gdb-stub
+#    This version has gdb sub compiled and is named 'bochs'. GDB support is
+#    turned on/off via 'gdbstub' option in configuration.
+
+# TODO: duplicated code
+ifndef BOCHS
+boch bochs-gdb: BOCHS = $(shell if which bochs 2>/dev/null; then exit; fi; \
+	echo "*** Error: could not find executable bochs" 1>&2; \
+	exit 1)
+
+bochs-dbg: BOCHS = $(shell if which bochs-dbg 2>/dev/null; then exit; fi; \
+	echo "*** Error: could not find executable bochs-dbg" 1>&2; \
+	exit 1)
+endif
+
+# TODO: graceful exit when the bochs* executable is not found.
+
+bochs: $(IMAGE) $(BOCHSRC)
+	$(BOCHS) -q -f $(BOCHSRC)
+
+bochs-dbg: $(IMAGE) $(BOCHSRC)
+	$(BOCHS) -q -f $(BOCHSRC)
+
+bochs-gdb: $(IMAGE) $(BOCHSRC)-gdb .gdbinit
+	$(BOCHS) -q -f $(BOCHSRC)-gdb
 
 # For deleting the build
 clean:
