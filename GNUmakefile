@@ -192,7 +192,7 @@ $(BOCHSRC)-gdb: $(BOCHSRC).tmpl
 
 # TODO: duplicated code
 ifndef BOCHS
-boch bochs-gdb: BOCHS = $(shell if which bochs 2>/dev/null; then exit; fi; \
+bochs bochs-gdb: BOCHS = $(shell if which bochs 2>/dev/null; then exit; fi; \
 	echo "*** Error: could not find executable bochs" 1>&2; \
 	exit 1)
 
