@@ -57,7 +57,7 @@ endif
 
 # try to infer the correct QEMU
 ifndef QEMU
-QEMU := $(shell if which qemu 2>/dev/null; then exit; \
+%qemu qemu%: QEMU = $(shell if which qemu 2>/dev/null; then exit; \
         elif which qemu-system-i386 2>/dev/null; then exit; \
 	else \
 	qemu=/Applications/Q.app/Contents/MacOS/i386-softmmu.app/Contents/MacOS/i386-softmmu; \
