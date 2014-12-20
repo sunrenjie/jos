@@ -23,6 +23,7 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "trace", "Display stack back trace info", mon_backtrace },
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -55,10 +56,46 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
+/*
+ * Implementation notes:
+ * 1. The ebp values denote frame top of the function calls in the stack.
+ *    Since stack frames essentially feature a single linked list, with each
+ *    link pointing to the next one (or zero when the list is exhausted), we
+ *    traverse the list by repeatedly dereferencing ebp.
+ * 2. The eip values are meant to denote the function call context address
+ *    *roughly*. It is actually determined as return address (or address to
+ *    the next instruction) of the caller, which is always at the top of
+ *    function call frames. For mon_backtrace() itself, this will be the next
+ *    instruction after call to read_eip(). For other function call stack
+ *    frames, this will be next instruction of the caller when the function
+ *    call returns.
+ * 3. The args, function call argument list, is immediately below eips. Each
+ *    args[i] will be the ith argument as listed in function definition from
+ *    left to right. Since we have no way (yet) to determine the argument
+ *    number, we temporarily blindly print 5 arguments, some or all of which
+ *    may be garbage if there ain't that many, and some may be missing if
+ *    there are more than that.
+ */
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	// Your code here.
+	uint32_t *ebp = (uint32_t *) read_ebp();
+	uint32_t *eip = (uint32_t *) read_eip();
+	uint32_t *args;
+	int i;
+
+	cprintf("Stack backtrace:\n");
+	do {
+		args = ebp + 2;
+		cprintf("  ebp %08x eip %08x  args", ebp, eip);
+		// TODO: blindly printing 5 arguments since we have no way of
+		// knowing the exact number.
+		for (i = 0; i < 5; i++)
+			cprintf(" %08x", args[i]);
+		cprintf("\n");
+		eip = (uint32_t *)*(ebp + 1);
+		ebp = (uint32_t *)*ebp;
+	} while (ebp); // function call frame list not exhausted?
 	return 0;
 }
 
