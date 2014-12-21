@@ -161,6 +161,7 @@ load_sizeok:	movzbw %al,%cx			# Num sectors to read
 		mov DIR_EA_LEN(%bx),%dl
 		add %edx,%eax			# Skip extended
 		mov $MEM_READ_BUFFER,%ebx	# Read into the buffer
+		mov %ebx, buffer_kernel		# store
 load_loop:	mov %cl,%dh
 		cmp $MAX_READ_SEC,%cl		# Truncate to max read size
 		jbe load_notrunc
@@ -175,8 +176,7 @@ load_notrunc:	sub %dh,%cl			# Update count
 		jmp load_loop			# Keep going
 load_done:
 
-		mov $msg_todo, %si		# TODO: cannot continue
-		call error
+		call start			# jump to boot.S
 
 #
 # Turn on the A20 address line
@@ -533,6 +533,12 @@ edd_lba:	.quad 0x0			# LBA
 drive:		.byte 0
 
 #
+# Buffer for data read from CD; stored for use by cdbootmain.c
+#
+buffer_kernel:	.long 0x0
+		.globl buffer_kernel
+
+#
 # State for searching dir
 #
 rec_lba:	.long 0x0			# LBA (adjusted for EA)
@@ -553,7 +559,6 @@ msg_lookup2:	.asciz  "... "
 msg_lookupok:	.asciz  "Found\r\n"
 msg_lookupfail:	.asciz  "File not found\r\n"
 msg_load2big:	.asciz  "File too big\r\n"
-msg_todo:	.asciz	"TODO: Please continue loading the JOS kernel.\r\n"
 loader_path:	.asciz  "/BOOT/KERNEL"
 twiddle_chars:	.ascii	"|/-\\"
 

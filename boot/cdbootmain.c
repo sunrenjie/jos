@@ -30,7 +30,10 @@
  **********************************************************************/
 
 #define SECTSIZE	512
-#define ELFHDR		((struct Elf *) 0x10000) // scratch space
+// Our ELF header needs 0x1000 bytes. Since FreeBSD cdboot.s loads kernel to
+// buffer at 0x9000, our cdboot binary starts at 0x7c00 and extends beyond
+// 0x8000, the address nearest to ideal will be 0x6000.
+#define ELFHDR		((struct Elf *) 0x6000)
 
 void readsect(void*, uint32_t);
 void readseg(uint32_t, uint32_t, uint32_t);
@@ -64,57 +67,36 @@ bad:
 		/* do nothing */;
 }
 
+void *
+memmove(void *dst, const void *src, size_t n)
+{
+	const char *s;
+	char *d;
+	
+	s = src;
+	d = dst;
+	if (s < d && s + n > d) {
+		s += n;
+		d += n;
+		while (n-- > 0)
+			*--d = *--s;
+	} else
+		while (n-- > 0)
+			*d++ = *s++;
+
+	return dst;
+}
+
 // Read 'count' bytes at 'offset' from kernel into virtual address 'va'.
 // Might copy more than asked
+// TODO: dirty method with the help of external CD reader; improvements needed.
 void
 readseg(uint32_t va, uint32_t count, uint32_t offset)
 {
 	uint32_t end_va;
+	extern int buffer_kernel;
 
-	va &= 0xFFFFFF;
-	end_va = va + count;
-	
-	// round down to sector boundary
-	va &= ~(SECTSIZE - 1);
-
-	// translate from bytes to sectors, and kernel starts at sector 1
-	offset = (offset / SECTSIZE) + 1;
-
-	// If this is too slow, we could read lots of sectors at a time.
-	// We'd write more to memory than asked, but it doesn't matter --
-	// we load in increasing order.
-	while (va < end_va) {
-		readsect((uint8_t*) va, offset);
-		va += SECTSIZE;
-		offset++;
-	}
-}
-
-void
-waitdisk(void)
-{
-	// wait for disk reaady
-	while ((inb(0x1F7) & 0xC0) != 0x40)
-		/* do nothing */;
-}
-
-void
-readsect(void *dst, uint32_t offset)
-{
-	// wait for disk to be ready
-	waitdisk();
-
-	outb(0x1F2, 1);		// count = 1
-	outb(0x1F3, offset);
-	outb(0x1F4, offset >> 8);
-	outb(0x1F5, offset >> 16);
-	outb(0x1F6, (offset >> 24) | 0xE0);
-	outb(0x1F7, 0x20);	// cmd 0x20 - read sectors
-
-	// wait for disk to be ready
-	waitdisk();
-
-	// read a sector
-	insl(0x1F0, dst, SECTSIZE/4);
+	va &= 0xFFFFFF; // clear the kernel virtual address relocating bits
+	memmove((void *)va, (void *)(buffer_kernel + offset), count);
 }
 
