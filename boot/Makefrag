@@ -8,7 +8,7 @@
 OBJDIRS += boot
 
 BOOT_OBJS := $(OBJDIR)/boot/boot.o $(OBJDIR)/boot/main.o
-CDBOOT_OBJS := $(OBJDIR)/boot/boot.o $(OBJDIR)/boot/cdboot.o $(OBJDIR)/boot/cdbootmain.o
+CDBOOT_OBJS := $(OBJDIR)/boot/cdboot.o $(OBJDIR)/boot/boot.o $(OBJDIR)/boot/cdbootmain.o
 
 $(OBJDIR)/boot/%.o: boot/%.c
 	@echo + cc -Os $<
@@ -37,7 +37,7 @@ $(OBJDIR)/boot/boot: $(BOOT_OBJS)
 
 $(OBJDIR)/boot/cdboot: $(CDBOOT_OBJS)
 	@echo + ld boot/cdboot
-	$(V)$(LD) $(LDFLAGS) -N -e start -Ttext 0x7C00 -o $@.out $^
+	$(V)$(LD) $(LDFLAGS) -N -e startx -Ttext 0x7C00 -o $@.out $^
 	$(V)$(OBJDUMP) -S $@.out >$@.asm
 	$(V)$(OBJCOPY) -S -O binary -j .text $@.out $@
 

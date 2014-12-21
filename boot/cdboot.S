@@ -34,6 +34,7 @@
 		.set MEM_ARG_BTX,0xa100		# Where we move them to so the
 						#  BTX client can see them
 		.set MEM_ARG_SIZE,0x18		# Size of the arguments
+		.set MEM_ARG_SIZE_DWORD,0x6	# the above in unit of dword
 		.set MEM_BTX_ADDRESS,0x9000	# where BTX lives
 		.set MEM_BTX_ENTRY,0x9010	# where BTX starts to execute
 		.set MEM_BTX_OFFSET,MEM_PAGE_SIZE # offset of BTX in the loader
@@ -91,15 +92,15 @@
 # point)
 #
 		.code16
-		.globl start
+		.globl startx
 		.org 0x0, 0x0
 #
 # Program start.
 #
-start:		cld				# string ops inc
+startx:		cld				# string ops inc
 		xor %ax,%ax			# zero %ax
 		mov %ax,%ss			# setup the
-		mov $start,%sp			#  stack
+		mov $startx,%sp			#  stack
 		mov %ax,%ds			# setup the
 		mov %ax,%es			#  data segments
 		mov %dl,drive			# Save BIOS boot device
@@ -113,7 +114,7 @@ start:		cld				# string ops inc
 		mov $MEM_ARG,%bx		# %ds:(%bx) -> boot args
 		mov %bx,%di			# %es:(%di) -> boot args
 		xor %eax,%eax			# zero %eax
-		mov $(MEM_ARG_SIZE/4),%cx	# Size of arguments in 32-bit
+		mov $(MEM_ARG_SIZE_DWORD),%cx	# Size of arguments in 32-bit
 						#  dwords
 		rep				# Clear the arguments
 		stosl				#  to zero
@@ -173,6 +174,10 @@ load_notrunc:	sub %dh,%cl			# Update count
 		jcxz load_done			# Done?
 		jmp load_loop			# Keep going
 load_done:
+
+		mov $msg_todo, %si		# TODO: cannot continue
+		call error
+
 #
 # Turn on the A20 address line
 #
@@ -246,7 +251,7 @@ pm_end:		sti				# Turn interrupts back on now
 #
 		mov $MEM_ARG,%si		# where the args are at now
 		mov $MEM_ARG_BTX,%di		# where the args are moving to
-		mov $(MEM_ARG_SIZE/4),%cx	# size of the arguments in longs
+		mov $(MEM_ARG_SIZE_DWORD),%cx	# size of the arguments in longs
 		rep				# Relocate
 		movsl				#  the words
 #
@@ -486,7 +491,7 @@ hex8.1: 	andb $0xf,%al			# Get lower 4
 btx_client:	mov $(MEM_ARG_BTX-MEM_BTX_CLIENT+MEM_ARG_SIZE-4), %esi
 						# %ds:(%esi) -> end
 						#  of boot[12] args
-		mov $(MEM_ARG_SIZE/4),%ecx	# Number of words to push
+		mov $(MEM_ARG_SIZE_DWORD),%ecx	# Number of words to push
 		std				# Go backwards
 push_arg:	lodsl				# Read argument
 		push %eax			# Push it onto the stack
@@ -548,6 +553,7 @@ msg_lookup2:	.asciz  "... "
 msg_lookupok:	.asciz  "Found\r\n"
 msg_lookupfail:	.asciz  "File not found\r\n"
 msg_load2big:	.asciz  "File too big\r\n"
-loader_path:	.asciz  "/BOOT/LOADER"
+msg_todo:	.asciz	"TODO: Please continue loading the JOS kernel.\r\n"
+loader_path:	.asciz  "/BOOT/KERNEL"
 twiddle_chars:	.ascii	"|/-\\"
 
