@@ -73,7 +73,14 @@ $(IMAGE): $(OBJDIR)/kern/kernel $(OBJDIR)/boot/boot
 	$(V)dd if=$(OBJDIR)/kern/kernel of=$(IMAGE)~ seek=1 conv=notrunc 2>/dev/null
 	$(V)mv $(IMAGE)~ $(IMAGE)
 
-all: $(IMAGE)
+$(ISOIMAGE): $(OBJDIR)/kern/kernel $(OBJDIR)/boot/cdboot
+	@echo + mk $@
+	@mkdir -p $(@D)/rootfs/boot
+	@cp $(OBJDIR)/boot/cdboot $(@D)/rootfs/boot
+	@cp $(OBJDIR)/kern/kernel $(@D)/rootfs/boot
+	@mkisofs -R -no-emul-boot -b boot/cdboot -o $(ISOIMAGE) $(@D)/rootfs
+
+all: $(IMAGE) $(ISOIMAGE)
 
 grub: $(OBJDIR)/jos-grub
 

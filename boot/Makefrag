@@ -8,6 +8,7 @@
 OBJDIRS += boot
 
 BOOT_OBJS := $(OBJDIR)/boot/boot.o $(OBJDIR)/boot/main.o
+CDBOOT_OBJS := $(OBJDIR)/boot/boot.o $(OBJDIR)/boot/cdboot.o $(OBJDIR)/boot/cdbootmain.o
 
 $(OBJDIR)/boot/%.o: boot/%.c
 	@echo + cc -Os $<
@@ -23,10 +24,20 @@ $(OBJDIR)/boot/main.o: boot/main.c
 	@echo + cc -Os $<
 	$(V)$(CC) -nostdinc $(KERN_CFLAGS) -Os -c -o $(OBJDIR)/boot/main.o boot/main.c
 
+$(OBJDIR)/boot/cdbootmain.o: boot/cdbootmain.c
+	@echo + cc -Os $<
+	$(V)$(CC) -nostdinc $(KERN_CFLAGS) -Os -c -o $(OBJDIR)/boot/cdbootmain.o boot/cdbootmain.c
+
 $(OBJDIR)/boot/boot: $(BOOT_OBJS)
 	@echo + ld boot/boot
 	$(V)$(LD) $(LDFLAGS) -N -e start -Ttext 0x7C00 -o $@.out $^
 	$(V)$(OBJDUMP) -S $@.out >$@.asm
 	$(V)$(OBJCOPY) -S -O binary -j .text $@.out $@
 	$(V)perl boot/sign.pl $(OBJDIR)/boot/boot
+
+$(OBJDIR)/boot/cdboot: $(CDBOOT_OBJS)
+	@echo + ld boot/cdboot
+	$(V)$(LD) $(LDFLAGS) -N -e start -Ttext 0x7C00 -o $@.out $^
+	$(V)$(OBJDUMP) -S $@.out >$@.asm
+	$(V)$(OBJCOPY) -S -O binary -j .text $@.out $@
 

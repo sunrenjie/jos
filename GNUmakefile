@@ -126,6 +126,7 @@ KERN_CFLAGS := $(CFLAGS) -DJOS_KERNEL -gstabs
 USER_CFLAGS := $(CFLAGS) -DJOS_USER -gstabs
 
 IMAGE = $(OBJDIR)/kern/kernel.img
+ISOIMAGE = $(OBJDIR)/cdboot/jos.iso
 
 # Include Makefrags for subdirectories
 include boot/Makefrag
