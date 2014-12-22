@@ -114,8 +114,12 @@ boot_alloc(uint32_t n, uint32_t align)
 	//	Step 2: save current value of boot_freemem as allocated chunk
 	//	Step 3: increase boot_freemem to record allocation
 	//	Step 4: return allocated chunk
-
-	return NULL;
+	v = boot_freemem = ROUNDUP(boot_freemem, align);
+	boot_freemem += n;
+	if (PADDR(boot_freemem) > maxpa)
+		panic("boot_alloc: memory exhausted: maxpa=0x%x, allocated=0x%x\n",
+			maxpa, PADDR(boot_freemem));
+	return v;
 }
 
 //
@@ -145,7 +149,16 @@ boot_alloc(uint32_t n, uint32_t align)
 static pte_t*
 boot_pgdir_walk(pde_t *pgdir, uintptr_t la, int create)
 {
-	return 0;
+	pte_t *p, d = pgdir[PDX(la)]; // p: virtual, d: physical
+	if (d & PTE_P) {
+		p = (pte_t *) KADDR(PTE_ADDR(d));
+	} else {
+		if (! create)
+			panic("boot_pgdir_walk: not allowed to create pgdir entry for la 0x%08x.\n", la);
+		p = (pte_t *) boot_alloc(PGSIZE, PGSIZE);
+		pgdir[PDX(la)] = PADDR(p) | PTE_P | PTE_W | PTE_U;
+	}
+	return &p[PTX(la)];
 }
 
 //
@@ -159,6 +172,12 @@ boot_pgdir_walk(pde_t *pgdir, uintptr_t la, int create)
 static void
 boot_map_segment(pde_t *pgdir, uintptr_t la, size_t size, physaddr_t pa, int perm)
 {
+	int i;
+	pte_t *t;
+	for (i = 0; i < size; i += PGSIZE) {
+		t = boot_pgdir_walk(pgdir, la + i, 1);
+		*t = (pte_t)((pa + i) | PTE_P | perm);
+	}
 }
 
 // Set up a two-level page table:
@@ -179,9 +198,8 @@ i386_vm_init(void)
 	pde_t* pgdir;
 	uint32_t cr0;
 	size_t n;
-
-	// Remove this line when you're ready to test this function.
-	panic("i386_vm_init: This function is not finished\n");
+	pte_t *t;
+	extern char bootstack[];
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
@@ -211,6 +229,12 @@ i386_vm_init(void)
 	//     * [KSTACKTOP-PTSIZE, KSTACKTOP-KSTKSIZE) -- not backed => faults
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
+	for (n = 0; n < PTSIZE-KSTKSIZE; n += PGSIZE) {
+		t = boot_pgdir_walk(pgdir, KSTACKTOP-PTSIZE+n, 1);
+		*t = 0;
+	}
+	boot_map_segment(pgdir, (uintptr_t)(KSTACKTOP-KSTKSIZE), KSTKSIZE,
+		PADDR(bootstack), PTE_W);
 
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE. 
@@ -220,6 +244,8 @@ i386_vm_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here: 
+	boot_map_segment(pgdir, (uintptr_t) KERNBASE, ~KERNBASE + 1,
+		(physaddr_t) 0, PTE_W);
 
 	//////////////////////////////////////////////////////////////////////
 	// Make 'pages' point to an array of size 'npage' of 'struct Page'.
@@ -233,6 +259,9 @@ i386_vm_init(void)
 	//    - pages -- kernel RW, user NONE
 	//    - the read-only version mapped at UPAGES -- kernel R, user R
 	// Your code goes here: 
+	n = npage * sizeof(struct Page);
+	pages = boot_alloc(n, PGSIZE);
+	boot_map_segment(pgdir, (uintptr_t) UPAGES, n, PADDR(pages), PTE_U);
 
 	// Check that the initial page directory has been set up correctly.
 	check_boot_pgdir();
