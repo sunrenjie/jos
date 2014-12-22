@@ -35,9 +35,7 @@ TOP = .
 # installed as 'i386-jos-elf-*', if one exists.  If the host tools ('gcc',
 # 'objdump', and so forth) compile for a 32-bit x86 ELF target, that will
 # be detected as well.  If you have the right compiler toolchain installed
-# using a different name, set GCCPREFIX explicitly by doing
-#
-#	make 'GCCPREFIX=i386-jos-elf-' gccsetup
+# using a different name, set GCCPREFIX explicitly in conf/env.mk
 
 # try to infer the correct GCCPREFIX
 ifndef GCCPREFIX
@@ -229,10 +227,10 @@ grade: $(LABSETUP)grade.sh
 
 handin: tarball
 	@echo Please visit http://pdos.csail.mit.edu/cgi-bin/828handin
-	@echo and upload lab$(LAB).tar.gz.  Thanks!
+	@echo and upload lab$(LAB)-handin.tar.gz.  Thanks!
 
 tarball: realclean
-	tar cf - `ls -a | grep -v '^\.*$$' | grep -v '^CVS$$' | grep -v '^lab[0-9].*\.tar\.gz'` | gzip > lab$(LAB).tar.gz
+	tar cf - `find . -type f | grep -v '^\.*$$' | grep -v '/CVS/' | grep -v '/\.svn/' | grep -v 'lab[0-9].*\.tar\.gz'` | gzip > lab$(LAB)-handin.tar.gz
 
 # For test runs
 run-%:
