@@ -181,6 +181,10 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	//	Look at the STABS documentation and <inc/stab.h> to find
 	//	which one.
 	// Your code here.
+	stab_binsearch(stabs, &lline, &rline, N_SLINE, addr);
+	if (lline <= rline) {
+		info->eip_line = stabs[lline].n_desc;
+	}
 
 	
 	// Search backwards from the line number for the relevant filename
@@ -199,6 +203,12 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	// Set eip_fn_narg to the number of arguments taken by the function,
 	// or 0 if there was no containing function.
 	// Your code here.
+	if (lfun <= rfun) {
+		rfun = lfun + 1;
+		while (stabs[rfun].n_type == N_PSYM)
+			rfun++;
+		info->eip_fn_narg = rfun - lfun - 1;
+	}
 
 	
 	return 0;

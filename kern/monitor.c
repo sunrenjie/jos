@@ -83,15 +83,24 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	uint32_t *ebp = (uint32_t *) read_ebp();
 	uint32_t *eip = (uint32_t *) read_eip();
 	uint32_t *args;
-	int i;
+	int i, nargs;
+	struct Eipdebuginfo info;
+	char buf[64];
 
 	cprintf("Stack backtrace:\n");
 	do {
 		args = ebp + 2;
+		nargs = 5; // #args default value
+		if (debuginfo_eip((uintptr_t) eip, &info) == 0) {
+			nargs = info.eip_fn_narg;
+			strlcpy(buf, info.eip_fn_name, info.eip_fn_namelen+1);
+			cprintf("%s:%d: %s+%d\n", info.eip_file, info.eip_line,
+				buf, (uint32_t)eip - info.eip_fn_addr);
+		}
 		cprintf("  ebp %08x eip %08x  args", ebp, eip);
 		// TODO: blindly printing 5 arguments since we have no way of
 		// knowing the exact number.
-		for (i = 0; i < 5; i++)
+		for (i = 0; i < nargs; i++)
 			cprintf(" %08x", args[i]);
 		cprintf("\n");
 		eip = (uint32_t *)*(ebp + 1);
