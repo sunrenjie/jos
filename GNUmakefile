@@ -43,6 +43,8 @@ GCCPREFIX := $(shell if i386-jos-elf-objdump -i 2>&1 | grep '^elf32-i386$$' >/de
 	then echo 'i386-jos-elf-'; \
 	elif objdump -i 2>&1 | grep 'elf32-i386' >/dev/null 2>&1; \
 	then echo ''; \
+	elif i386-elf-objdump -i 2>&1 | grep 'elf32-i386' >/dev/null 2>&1; \
+	then echo 'i386-elf-'; \
 	else echo "***" 1>&2; \
 	echo "*** Error: Couldn't find an i386-*-elf version of GCC/binutils." 1>&2; \
 	echo "*** Is the directory with i386-jos-elf-gcc in your PATH?" 1>&2; \
