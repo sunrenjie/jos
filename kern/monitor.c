@@ -88,7 +88,7 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	char buf[64];
 
 	cprintf("Stack backtrace:\n");
-	do {
+	while (1) {
 		args = ebp + 2;
 		nargs = 5; // #args default value
 		if (debuginfo_eip((uintptr_t) eip, &info) == 0) {
@@ -103,9 +103,11 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 		for (i = 0; i < nargs; i++)
 			cprintf(" %08x", args[i]);
 		cprintf("\n");
+		if (!ebp) // function call frame list not exhausted?
+			break;
 		eip = (uint32_t *)*(ebp + 1);
 		ebp = (uint32_t *)*ebp;
-	} while (ebp); // function call frame list not exhausted?
+	};
 	return 0;
 }
 
