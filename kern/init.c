@@ -8,6 +8,8 @@
 #include <kern/console.h>
 #include <kern/pmap.h>
 #include <kern/kclock.h>
+#include <kern/env.h>
+#include <kern/trap.h>
 
 
 void
@@ -32,15 +34,25 @@ i386_init(void)
 	page_init();
 	page_check();
 
+	// Lab 3 user environment initialization functions
+	env_init();
+	idt_init();
 
 
+	// Temporary test code specific to LAB 3
+#if defined(TEST)
+	// Don't touch -- used by grading script!
+	ENV_CREATE2(TEST, TESTSIZE);
+#else
+	// Touch all you want.
+	ENV_CREATE(user_hello);
+#endif // TEST*
 
 
+	// We only have one user environment for now, so just run it.
+	env_run(&envs[0]);
 
 
-	// Drop into the kernel monitor.
-	while (1)
-		monitor(NULL);
 }
 
 

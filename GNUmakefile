@@ -130,6 +130,8 @@ IMAGE = $(OBJDIR)/kern/kernel.img
 # Include Makefrags for subdirectories
 include boot/Makefrag
 include kern/Makefrag
+include lib/Makefrag
+include user/Makefrag
 
 QEMUOPTS = -hda $(OBJDIR)/kern/kernel.img -serial mon:stdio -gdb tcp::$(GDBPORT)
 QEMUOPTS += $(shell if $(QEMU) -nographic -help | grep -q '^-D '; then echo '-D qemu.log'; fi)

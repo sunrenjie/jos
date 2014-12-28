@@ -215,6 +215,9 @@ segment_alloc(struct Env *e, void *va, size_t len)
 //
 // Finally, this function maps one page for the program's initial stack.
 //
+// load_icode panics if it encounters problems.
+//  - How might load_icode fail?  What might be wrong with the given input?
+//
 static void
 load_icode(struct Env *e, uint8_t *binary, size_t size)
 {
@@ -261,6 +264,10 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 // before running the first user-mode environment.
 // The new env's parent ID is set to 0.
 //
+// Where does the result go? 
+// By convention, envs[0] is the first environment allocated, so
+// whoever calls env_create simply looks for the newly created
+// environment there. 
 void
 env_create(uint8_t *binary, size_t size)
 {
