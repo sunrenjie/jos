@@ -72,6 +72,13 @@ void
 env_init(void)
 {
 	// LAB 3: Your code here.
+	int i = NENV;
+	LIST_INIT(&env_free_list);
+	while (--i >= 0) {
+		envs[i].env_id = 0;
+		envs[i].env_status = ENV_FREE;
+		LIST_INSERT_HEAD(&env_free_list, &envs[i], env_link);
+	}
 }
 
 //
@@ -89,6 +96,7 @@ env_setup_vm(struct Env *e)
 {
 	int i, r;
 	struct Page *p = NULL;
+	extern pde_t *boot_pgdir;
 
 	// Allocate a page for the page directory
 	if ((r = page_alloc(&p)) < 0)
@@ -110,6 +118,19 @@ env_setup_vm(struct Env *e)
 	//	env_pgdir's pp_ref!
 
 	// LAB 3: Your code here.
+	p->pp_ref++;
+	e->env_pgdir = page2kva(p);
+	e->env_cr3 = page2pa(p);
+	for (i = PDX(UTOP); i <= PDX(~0); i++) { // i < NPDENTRIES may be better
+		if (boot_pgdir[i] & PTE_P) {
+			/* Yes, just copy; if we remove PTE_W, then the call
+			   env_pop_tf(&e->env_tf); below will silently fail:
+			   it needs to write the parameter tf to stack.
+			 */
+			e->env_pgdir[i] = boot_pgdir[i];
+		} else
+			e->env_pgdir[i] = 0;
+	}
 
 	// VPT and UVPT map the env's own page table, with
 	// different permissions.
@@ -186,14 +207,27 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 // Panic if any allocation attempt fails.
 //
 static void
-segment_alloc(struct Env *e, void *va, size_t len)
+segment_alloc(pde_t *pgdir, void *va, size_t len)
 {
+	// We changed the interface here, to make our life easier.
 	// LAB 3: Your code here.
 	// (But only if you need it for load_icode.)
 	//
 	// Hint: It is easier to use segment_alloc if the caller can pass
 	//   'va' and 'len' values that are not page-aligned.
 	//   You should round va down, and round len up.
+	void *v;
+	int r;
+	struct Page *p = NULL;
+
+	for (v = ROUNDDOWN(va, PGSIZE); v < ROUNDUP(va + len, PGSIZE);
+			v += PGSIZE) {
+		if ((r = page_alloc(&p) < 0) != 0)
+			panic("segment_alloc: page_alloc failed: %e\n", r);
+		if ((r = page_insert(pgdir, p, v, PTE_U | PTE_W)) != 0)
+			panic("segment_alloc: page_insert failed: %e\n", r);
+		p->pp_ref++;
+	}
 }
 
 //
@@ -251,11 +285,55 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 	//  What?  (See env_run() and env_pop_tf() below.)
 
 	// LAB 3: Your code here.
+	extern pde_t *boot_pgdir;
+	struct Elf *elf = (struct Elf *)binary;
+	struct Proghdr *ph, *eph;
+	void *min = NULL, *max = NULL, *beg, *end;
+
+	if (elf->e_magic != ELF_MAGIC)
+		panic("load_icode: ELF magic checking failed\n");
+	ph = (struct Proghdr *) (binary + elf->e_phoff);
+	eph = ph + elf->e_phnum;
+	for (; ph < eph; ph++) {
+		if (ph->p_type != ELF_PROG_LOAD)
+			continue;
+		beg = (void *)ROUNDDOWN(ph->p_va, PGSIZE);
+		end = (void *)ROUNDUP(ph->p_va + ph->p_memsz, PGSIZE);
+		if (min != NULL) {
+			if (min > beg)
+				min = beg;
+			if (max < end)
+				max = end;
+		} else {
+			min = beg;
+			max = end;
+		}
+		if (min < (void *)USTABDATA ||
+		    max > (void *)(USTACKTOP - PGSIZE))
+			panic("load_icode: vm range [0x%08x, 0x%08x] illegal\n",
+				min, max);
+		segment_alloc(boot_pgdir, (void *)ph->p_va, ph->p_memsz);
+		memmove((void *)ph->p_va, (void *)(binary + ph->p_offset),
+			ph->p_filesz);
+		memset((void *)(ph->p_va + ph->p_filesz), 0,
+			ph->p_memsz - ph->p_filesz);
+	}
+	// 'move' pgdir entries from boot_pgdir to e->pgdir if necessary
+	while (min < max) {
+		if (boot_pgdir[PDX(min)] & PTE_P) {
+			e->env_pgdir[PDX(min)] = boot_pgdir[PDX(min)];
+			boot_pgdir[PDX(min)] = 0;
+			tlb_invalidate(boot_pgdir, min);
+		}
+		min += PGSIZE;
+	}
 
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
 
 	// LAB 3: Your code here.
+	segment_alloc(e->env_pgdir, (void *)(USTACKTOP - PGSIZE), PGSIZE);
+	e->env_tf.tf_eip = elf->e_entry;
 }
 
 //
@@ -272,6 +350,11 @@ void
 env_create(uint8_t *binary, size_t size)
 {
 	// LAB 3: Your code here.
+	int r;
+	struct Env *e;
+	if ((r = env_alloc(&e, 0)) != 0)
+		panic("env_create: %e", r);
+	load_icode(e, binary, size);
 }
 
 //
@@ -377,7 +460,14 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 	
 	// LAB 3: Your code here.
-
-        panic("env_run not yet implemented");
+	// Note: we might think that since this function never returns, yet it
+	// uses stack, the kernel stack memory may be leaked. This is not the
+	// case, since the whole stack will be forgotten in env_pop_tf().
+	e->env_runs++;
+	curenv = e;
+	lcr3(e->env_cr3);
+	env_pop_tf(&e->env_tf);
+	while (1)
+		; /* never returns */
 }
 
