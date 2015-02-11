@@ -59,6 +59,46 @@ idt_init(void)
 	extern struct Segdesc gdt[];
 	
 	// LAB 3: Your code here.
+	extern void th_divide(void);
+	extern void th_debug(void);
+	extern void th_nmi(void);
+	extern void th_brkpt(void);
+	extern void th_oflow(void);
+	extern void th_bound(void);
+	extern void th_illop(void);
+	extern void th_device(void);
+	extern void th_dblflt(void);
+	extern void th_tss(void);
+	extern void th_segnp(void);
+	extern void th_stack(void);
+	extern void th_gpflt(void);
+	extern void th_pgflt(void);
+	extern void th_fperr(void);
+	extern void th_align(void);
+	extern void th_mchk(void);
+	extern void th_simderr(void);
+	extern void th_syscall(void);
+	extern void th_default(void);
+	SETGATE(idt[T_DIVIDE], 1, GD_KT, th_divide, 3)
+	SETGATE(idt[T_DEBUG], 1, GD_KT, th_debug, 3)
+	SETGATE(idt[T_NMI], 0, GD_KT, th_nmi, 3)
+	SETGATE(idt[T_BRKPT], 0, GD_KT, th_brkpt, 3)
+	SETGATE(idt[T_OFLOW], 1, GD_KT, th_oflow, 3)
+	SETGATE(idt[T_BOUND], 1, GD_KT, th_bound, 3)
+	SETGATE(idt[T_ILLOP], 1, GD_KT, th_illop, 3)
+	SETGATE(idt[T_DEVICE], 0, GD_KT, th_device, 3)
+	SETGATE(idt[T_DBLFLT], 1, GD_KT, th_dblflt, 3)
+	SETGATE(idt[T_TSS], 1, GD_KT, th_tss, 3)
+	SETGATE(idt[T_SEGNP], 1, GD_KT, th_segnp, 3)
+	SETGATE(idt[T_STACK], 1, GD_KT, th_stack, 3)
+	SETGATE(idt[T_GPFLT], 1, GD_KT, th_gpflt, 0) // TODO: improve this
+	SETGATE(idt[T_PGFLT], 1, GD_KT, th_pgflt, 3)
+	SETGATE(idt[T_FPERR], 1, GD_KT, th_fperr, 3)
+	SETGATE(idt[T_ALIGN], 1, GD_KT, th_align, 3)
+	SETGATE(idt[T_MCHK], 1, GD_KT, th_mchk, 3)
+	SETGATE(idt[T_SIMDERR], 1, GD_KT, th_simderr, 3)
+	SETGATE(idt[T_SYSCALL], 1, GD_KT, th_syscall, 3)
+	SETGATE(idt[T_DEFAULT], 1, GD_KT, th_default, 3)
 
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
