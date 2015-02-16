@@ -153,6 +153,11 @@ trap_dispatch(struct Trapframe *tf)
 	// LAB 3: Your code here.
 	if (tf->tf_trapno == T_BRKPT)
 		monitor(tf);
+	else if (tf->tf_trapno == T_SYSCALL)
+		tf->tf_regs.reg_eax = syscall(
+			tf->tf_regs.reg_eax, tf->tf_regs.reg_edx,
+			tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx,
+			tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
 	
 
 	// Unexpected trap: The user process or the kernel has a bug.
