@@ -674,6 +674,32 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here. 
+	const void *addr;
+	uintptr_t pdx = 0;
+	pte_t d = 0, t;
+	if (va >= (const void *)ULIM || va <= (const void *)USTABDATA) {
+		user_mem_check_addr = (uintptr_t) va;
+		return -E_FAULT;
+	}
+	for (addr = ROUNDDOWN(va, PGSIZE); addr < va + len; addr += PGSIZE) {
+		if (PDX(addr) != pdx) { // another page directory? then check
+			pdx = PDX(addr);
+			d = env->env_pgdir[pdx];
+			if ((d & PTE_P) != PTE_P ||
+			    (d & PTE_U) < (perm & PTE_U) ||
+			    (d & PTE_W) < (perm & PTE_W)) {
+				user_mem_check_addr = (uintptr_t) addr;
+				return -E_FAULT;
+			}
+		}
+		t = ((pte_t *)KADDR(PTE_ADDR(d)))[PTX(va)];
+		if ((t & PTE_P) != PTE_P ||
+		    (t & PTE_U) < (perm & PTE_U) ||
+		    (t & PTE_W) < (perm & PTE_W)) {
+			user_mem_check_addr = (uintptr_t) addr;
+			return -E_FAULT;
+		}
+	}
 
 	return 0;
 }
