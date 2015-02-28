@@ -4,6 +4,14 @@
 #include <kern/pmap.h>
 #include <kern/monitor.h>
 
+static int
+next_nonzero_index_in_envs(i, n)
+{
+	if (++i != n)
+		return i;
+	else
+		return 1;
+}
 
 // Choose a user environment to run and run it.
 void
@@ -19,6 +27,16 @@ sched_yield(void)
 	// unless NOTHING else is runnable.
 
 	// LAB 4: Your code here.
+	int i, j;
+	extern struct Env *envs, *curenv;
+	i = j = next_nonzero_index_in_envs(curenv ? curenv - envs : 0, NENV);
+	do {
+		if (envs[j].env_status == ENV_RUNNABLE) {
+			env_run(&envs[j]);
+			return;
+		}
+		j = next_nonzero_index_in_envs(j, NENV);
+	} while (j != i);
 
 	// Run the special idle environment when nothing else is runnable.
 	if (envs[0].env_status == ENV_RUNNABLE)
