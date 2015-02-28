@@ -294,39 +294,17 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 		panic("load_icode: ELF magic checking failed\n");
 	ph = (struct Proghdr *) (binary + elf->e_phoff);
 	eph = ph + elf->e_phnum;
+
+	// The following code is 'stolen' from work by zhangchitc@gmail.com.
+	lcr3(e->env_cr3);
 	for (; ph < eph; ph++) {
 		if (ph->p_type != ELF_PROG_LOAD)
 			continue;
-		beg = (void *)ROUNDDOWN(ph->p_va, PGSIZE);
-		end = (void *)ROUNDUP(ph->p_va + ph->p_memsz, PGSIZE);
-		if (min != NULL) {
-			if (min > beg)
-				min = beg;
-			if (max < end)
-				max = end;
-		} else {
-			min = beg;
-			max = end;
-		}
-		if (min < (void *)USTABDATA ||
-		    max > (void *)(USTACKTOP - PGSIZE))
-			panic("load_icode: vm range [0x%08x, 0x%08x] illegal\n",
-				min, max);
-		segment_alloc(boot_pgdir, (void *)ph->p_va, ph->p_memsz);
-		memmove((void *)ph->p_va, (void *)(binary + ph->p_offset),
-			ph->p_filesz);
-		memset((void *)(ph->p_va + ph->p_filesz), 0,
-			ph->p_memsz - ph->p_filesz);
+		segment_alloc(e->env_pgdir, (void *)ph->p_va, ph->p_memsz);
+		memset ((void *)ph->p_va, 0, ph->p_memsz);
+		memmove ((void *)ph->p_va, binary + ph->p_offset, ph->p_filesz);
 	}
-	// 'move' pgdir entries from boot_pgdir to e->pgdir if necessary
-	while (min < max) {
-		if (boot_pgdir[PDX(min)] & PTE_P) {
-			e->env_pgdir[PDX(min)] = boot_pgdir[PDX(min)];
-			boot_pgdir[PDX(min)] = 0;
-			tlb_invalidate(boot_pgdir, min);
-		}
-		min += PGSIZE;
-	}
+	lcr3(boot_cr3);
 
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
@@ -460,12 +438,22 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 	
 	// LAB 3: Your code here.
-	// Note: we might think that since this function never returns, yet it
-	// uses stack, the kernel stack memory may be leaked. This is not the
-	// case, since the whole stack will be forgotten in env_pop_tf().
-	e->env_runs++;
-	curenv = e;
-	lcr3(e->env_cr3);
+	// While we might think that since this function never returns, yet it
+	// uses stack, the stack memory may be exhausted finally. Actually,
+	// the first time this function is called, kernel stack is used. But
+	// later the kernel stack is forgotten forever when env_pop_tf() is
+	// later called. Afterwards, only the user stack (of curenv) is used
+	// for calling this function; such usage again is forgotten when
+	// env_pop_tf() is called to restore all the registers.
+	if (curenv != e) {
+		// Why would we call lcr3() only when curenv != e? When
+		// curenv == e, we are running inside the world defined in
+		// pgdir of curenv (in kernel mode of course), there is no need
+		// to do that.
+		curenv = e;
+		e->env_runs++;
+		lcr3(e->env_cr3);
+	}
 	env_pop_tf(&e->env_tf);
 	while (1)
 		; /* never returns */
