@@ -681,7 +681,7 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 		user_mem_check_addr = (uintptr_t) va;
 		return -E_FAULT;
 	}
-	for (addr = ROUNDDOWN(va, PGSIZE); addr < va + len; addr += PGSIZE) {
+	for (addr = va; addr < ROUNDUP(va + len, PGSIZE); addr += PGSIZE) {
 		if (PDX(addr) != pdx) { // another page directory? then check
 			pdx = PDX(addr);
 			d = env->env_pgdir[pdx];

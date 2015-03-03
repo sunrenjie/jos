@@ -167,8 +167,8 @@ trap_dispatch(struct Trapframe *tf)
 			tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
 		return;
 	case T_PGFLT:
-		if ((tf->tf_cs & 3) == 0)
-			panic("kerel page fault\n");
+		page_fault_handler(tf);
+		return;
 	}
 
 	// Handle clock and serial interrupts.
@@ -215,6 +215,8 @@ void
 page_fault_handler(struct Trapframe *tf)
 {
 	uint32_t fault_va;
+	void *top;
+	struct UTrapframe *utf;
 
 	// Read processor's CR2 register to find the faulting address
 	fault_va = rcr2();
@@ -253,6 +255,35 @@ page_fault_handler(struct Trapframe *tf)
 	
 	// LAB 4: Your code here.
 
+	if ((tf->tf_cs & 3) == 0)
+		panic("kerel page fault\n");
+	if (!curenv->env_pgfault_upcall)
+		goto destroy;
+	user_mem_assert(curenv, curenv->env_pgfault_upcall, 1, PTE_P|PTE_U);
+	user_mem_assert(curenv, (void *)UXSTACKTOP-PGSIZE, PGSIZE,
+		PTE_P|PTE_U|PTE_W);
+	if (tf->tf_esp >= UXSTACKTOP-PGSIZE && tf->tf_esp < UXSTACKTOP) {
+		// fault-handling code fault; leave an extra dword 0
+		top = (void *)(tf->tf_esp - sizeof(uint32_t));
+		*((uint32_t *)top) = 0;
+	} else
+		top = (void *)UXSTACKTOP;
+	utf = (struct UTrapframe *) (top - sizeof(struct UTrapframe));
+	if ((void *)utf < (void *)(UXSTACKTOP - PGSIZE)) // stack overflow?
+		goto destroy;
+	utf->utf_fault_va = fault_va;
+	utf->utf_err = tf->tf_err;
+	utf->utf_regs = tf->tf_regs;
+	utf->utf_eip = tf->tf_eip;
+	utf->utf_eflags = tf->tf_eflags;
+	utf->utf_esp = tf->tf_esp;
+	// Finally, execute current env @ page fault handler.
+	curenv->env_tf.tf_eip = (uint32_t)curenv->env_pgfault_upcall;
+	curenv->env_tf.tf_esp = (uint32_t)utf;
+	env_run(curenv);
+	return;
+
+destroy:
 	// Destroy the environment that caused the fault.
 	cprintf("[%08x] user fault va %08x ip %08x\n",
 		curenv->env_id, fault_va, tf->tf_eip);
