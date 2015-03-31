@@ -573,14 +573,15 @@ page_insert(pde_t *pgdir, struct Page *pp, void *va, int perm)
 	p = pgdir_walk(pgdir, va, 1);
 	if (!p)
 		return -E_NO_MEM;
+	pp->pp_ref++;
 	if (*p & PTE_P) { // any page existing?
 		ppl = pa2page(PTE_ADDR(*p));
-		if (ppl == pp) // same Page? then do nothing
-			return 0;
+		// don't detect pp==ppl here since we'd like to allow mapping
+		// the same page to the same va with different permission,
+		// i.e., to change permission of the current mapping.
 		page_decref(ppl);
 		tlb_invalidate(pgdir, va);
 	}
-	pp->pp_ref++;
 	*p = page2pa(pp) | PTE_P | perm;
 	return 0;
 }
