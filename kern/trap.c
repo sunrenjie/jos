@@ -84,6 +84,23 @@ idt_init(void)
 	extern void th_simderr(void);
 	extern void th_syscall(void);
 	extern void th_default(void);
+	extern void th_irq_0(void);
+	extern void th_irq_1(void);
+	extern void th_irq_2(void);
+	extern void th_irq_3(void);
+	extern void th_irq_4(void);
+	extern void th_irq_5(void);
+	extern void th_irq_6(void);
+	extern void th_irq_7(void);
+	extern void th_irq_8(void);
+	extern void th_irq_9(void);
+	extern void th_irq_10(void);
+	extern void th_irq_11(void);
+	extern void th_irq_12(void);
+	extern void th_irq_13(void);
+	extern void th_irq_14(void);
+	extern void th_irq_15(void);
+
 	SETGATE(idt[T_DIVIDE], 1, GD_KT, th_divide, 3)
 	SETGATE(idt[T_DEBUG], 1, GD_KT, th_debug, 3)
 	SETGATE(idt[T_NMI], 0, GD_KT, th_nmi, 3)
@@ -104,6 +121,22 @@ idt_init(void)
 	SETGATE(idt[T_SIMDERR], 1, GD_KT, th_simderr, 3)
 	SETGATE(idt[T_SYSCALL], 1, GD_KT, th_syscall, 3)
 	SETGATE(idt[T_DEFAULT], 1, GD_KT, th_default, 3)
+	SETGATE(idt[IRQ_OFFSET + 0], 0, GD_KT, th_irq_0, 0)
+	SETGATE(idt[IRQ_OFFSET + 1], 0, GD_KT, th_irq_1, 0)
+	SETGATE(idt[IRQ_OFFSET + 2], 0, GD_KT, th_irq_2, 0)
+	SETGATE(idt[IRQ_OFFSET + 3], 0, GD_KT, th_irq_3, 0)
+	SETGATE(idt[IRQ_OFFSET + 4], 0, GD_KT, th_irq_4, 0)
+	SETGATE(idt[IRQ_OFFSET + 5], 0, GD_KT, th_irq_5, 0)
+	SETGATE(idt[IRQ_OFFSET + 6], 0, GD_KT, th_irq_6, 0)
+	SETGATE(idt[IRQ_OFFSET + 7], 0, GD_KT, th_irq_7, 0)
+	SETGATE(idt[IRQ_OFFSET + 8], 0, GD_KT, th_irq_8, 0)
+	SETGATE(idt[IRQ_OFFSET + 9], 0, GD_KT, th_irq_9, 0)
+	SETGATE(idt[IRQ_OFFSET + 10], 0, GD_KT, th_irq_10, 0)
+	SETGATE(idt[IRQ_OFFSET + 11], 0, GD_KT, th_irq_11, 0)
+	SETGATE(idt[IRQ_OFFSET + 12], 0, GD_KT, th_irq_12, 0)
+	SETGATE(idt[IRQ_OFFSET + 13], 0, GD_KT, th_irq_13, 0)
+	SETGATE(idt[IRQ_OFFSET + 14], 0, GD_KT, th_irq_14, 0)
+	SETGATE(idt[IRQ_OFFSET + 15], 0, GD_KT, th_irq_15, 0)
 
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
