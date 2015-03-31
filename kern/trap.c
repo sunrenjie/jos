@@ -127,27 +127,27 @@ print_trapframe(struct Trapframe *tf)
 {
 	cprintf("TRAP frame at %p\n", tf);
 	print_regs(&tf->tf_regs);
-	cprintf("  es   0x----%04x\n", tf->tf_es);
+	cprintf("  es   0x----%04x", tf->tf_es);
 	cprintf("  ds   0x----%04x\n", tf->tf_ds);
 	cprintf("  trap 0x%08x %s\n", tf->tf_trapno, trapname(tf->tf_trapno));
 	cprintf("  err  0x%08x\n", tf->tf_err);
-	cprintf("  eip  0x%08x\n", tf->tf_eip);
+	cprintf("  eip  0x%08x", tf->tf_eip);
 	cprintf("  cs   0x----%04x\n", tf->tf_cs);
 	cprintf("  flag 0x%08x\n", tf->tf_eflags);
-	cprintf("  esp  0x%08x\n", tf->tf_esp);
+	cprintf("  esp  0x%08x", tf->tf_esp);
 	cprintf("  ss   0x----%04x\n", tf->tf_ss);
 }
 
 void
 print_regs(struct PushRegs *regs)
 {
-	cprintf("  edi  0x%08x\n", regs->reg_edi);
+	cprintf("  edi  0x%08x", regs->reg_edi);
 	cprintf("  esi  0x%08x\n", regs->reg_esi);
-	cprintf("  ebp  0x%08x\n", regs->reg_ebp);
+	cprintf("  ebp  0x%08x", regs->reg_ebp);
 	cprintf("  oesp 0x%08x\n", regs->reg_oesp);
-	cprintf("  ebx  0x%08x\n", regs->reg_ebx);
+	cprintf("  ebx  0x%08x", regs->reg_ebx);
 	cprintf("  edx  0x%08x\n", regs->reg_edx);
-	cprintf("  ecx  0x%08x\n", regs->reg_ecx);
+	cprintf("  ecx  0x%08x", regs->reg_ecx);
 	cprintf("  eax  0x%08x\n", regs->reg_eax);
 }
 
@@ -254,11 +254,14 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 	
 	// LAB 4: Your code here.
-
-	if ((tf->tf_cs & 3) == 0)
+	if ((tf->tf_cs & 3) == 0) {
+		print_trapframe(tf);
 		panic("kerel page fault\n");
-	if (!curenv->env_pgfault_upcall)
+	}
+	if (!curenv->env_pgfault_upcall) {
+		cprintf("[%08x] user env_pgfault_upcall not set.\n");
 		goto destroy;
+	}
 	user_mem_assert(curenv, curenv->env_pgfault_upcall, 1, PTE_P|PTE_U);
 	user_mem_assert(curenv, (void *)UXSTACKTOP-PGSIZE, PGSIZE,
 		PTE_P|PTE_U|PTE_W);
@@ -269,8 +272,10 @@ page_fault_handler(struct Trapframe *tf)
 	} else
 		top = (void *)UXSTACKTOP;
 	utf = (struct UTrapframe *) (top - sizeof(struct UTrapframe));
-	if ((void *)utf < (void *)(UXSTACKTOP - PGSIZE)) // stack overflow?
+	if ((void *)utf < (void *)(UXSTACKTOP - PGSIZE)) {
+		cprintf("[%08x] user exception stack overflow.\n");
 		goto destroy;
+	}
 	utf->utf_fault_va = fault_va;
 	utf->utf_err = tf->tf_err;
 	utf->utf_regs = tf->tf_regs;
