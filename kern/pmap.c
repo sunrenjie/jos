@@ -681,9 +681,13 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 	int disallowed = 0;
 	user_mem_check_addr = (uintptr_t)ULIM; // simplify logic below
 	if ((va + len) >= (const void *)ULIM) {
+		cprintf("the range [%08x, %08x) is well beyond ULIM(%08x)\n",
+			va, va + len, ULIM);
 		disallowed = 1;
 	}
-	for (addr = va; addr < ROUNDUP(va + len, PGSIZE); addr += PGSIZE) {
+	for (addr = va;
+	     addr < MIN(ROUNDUP(va + len, PGSIZE), (const void *)ULIM);
+	     addr += PGSIZE) {
 		// Our global policy is to set page directory permission bits
 		// to the lest restricive PTE_U, and use page table permission
 		// bits to control access. Hence no page dir checking here.
@@ -694,7 +698,8 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 			// access and allow page if necessary.
 			break;
 		if ((*t & PTE_U) < (perm & PTE_U)) {
-			cprintf("invalid pte %08x @ va %08x.\n", t, addr);
+			cprintf("insufficient permission for pte entry %08x @ va %08x.\n",
+				*t, addr);
 			disallowed = 1;
 			user_mem_check_addr = MIN(user_mem_check_addr,
 					(uintptr_t)ROUNDDOWN(addr, PGSIZE));
