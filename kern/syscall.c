@@ -241,20 +241,21 @@ sys_page_map(envid_t srcenvid, void *srcva,
 	// LAB 4: Your code here.
 	int r;
 	pte_t *pte;
+	pte_t t;
 	struct Env *src_e, *dst_e;
+	struct Page *p;
 	if ((r = envid2env(srcenvid, &src_e, 1)) < 0 ||
 	    (r = envid2env(dstenvid, &dst_e, 1)) < 0)
 		return r;
 	if (srcva >= (void *) UTOP || (uint32_t) srcva % PGSIZE ||
 	    dstva >= (void *) UTOP || (uint32_t) dstva % PGSIZE ||
 	    (perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P) ||
-	    perm & (~PTE_USER) ||
-	    (pte = pgdir_walk(src_e->env_pgdir, srcva, 0)) == NULL ||
-	    !(*pte & PTE_P) ||
-	    ((perm & PTE_W) && !(*pte & PTE_W)))
+	    perm & (~PTE_USER))
 		return -E_INVAL;
-	if ((r = page_insert(dst_e->env_pgdir, pa2page(PTE_ADDR(*pte)), dstva,
-				perm) < 0))
+	p = page_lookup(src_e->env_pgdir, srcva, &pte);
+	if (p == NULL || ((perm & PTE_W) && !((*pte) & PTE_W)))
+		return -E_INVAL;
+	if ((r = page_insert(dst_e->env_pgdir, p, dstva, perm) < 0))
 		return r;
 	return 0;
 }
