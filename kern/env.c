@@ -120,6 +120,7 @@ env_setup_vm(struct Env *e)
 
 	// LAB 3: Your code here.
 	p->pp_ref++;
+	memset(page2kva(p), 0, PGSIZE);
 	e->env_pgdir = page2kva(p);
 	e->env_cr3 = page2pa(p);
 	for (i = PDX(UTOP); i <= PDX(~0); i++) { // i < NPDENTRIES may be better

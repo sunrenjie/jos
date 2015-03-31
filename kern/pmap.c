@@ -540,6 +540,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 			return NULL;
 		p = page2kva(pp);
 		pp->pp_ref++;
+		memset(p, 0, PGSIZE);
 		pgdir[PDX(va)] = page2pa(pp) | PTE_P | PTE_W | PTE_U;
 	}
 	return &p[PTX(va)];
