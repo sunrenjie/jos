@@ -20,6 +20,7 @@
 	.type name, @function;	/* symbol type is function */		\
 	.align 2;		/* align function definition */		\
 	name:			/* function starts here */		\
+	cli;								\
 	pushl $(num);							\
 	jmp _alltraps
 
@@ -32,6 +33,7 @@
 	.type name, @function;						\
 	.align 2;							\
 	name:								\
+	cli;								\
 	pushl $0;							\
 	pushl $(num);							\
 	jmp _alltraps
@@ -85,15 +87,11 @@ _alltraps:
 	push	%ds
 	push	%es
 	pushal
+
 	movw	$GD_KD, %ax
 	movw	%ax, %ds
 	movw	%ax, %es
 	pushl	%esp
 	call	trap
-	/* TODO: improve here; below code may be unreachable.*/
-	popl	%esp
-	popal
-	pop	%es
-	pop	%ds
-	iret
+	/* Never returns */
 

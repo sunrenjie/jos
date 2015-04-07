@@ -53,6 +53,7 @@ i386_init(void)
 #else
 	// Touch all you want.
 	ENV_CREATE(user_forktree);
+	ENV_CREATE(user_spin);
 #endif // TEST*
 
 

@@ -202,6 +202,9 @@ trap_dispatch(struct Trapframe *tf)
 	case T_PGFLT:
 		page_fault_handler(tf);
 		return;
+	case IRQ_OFFSET:
+		sched_yield();
+		return;
 	}
 
 	// Handle clock and serial interrupts.
@@ -217,9 +220,149 @@ trap_dispatch(struct Trapframe *tf)
 	}
 }
 
+static void
+recover_tf_if_interrupted(struct Trapframe *tf)
+{
+	// Upon entering kernel mode, the first things the trap handlers do
+	// will be to disable interrupt by 'cli' instruction. But the TH code
+	// can still be interrupted, before the 'cli' instruction is executed.
+	// In such cases, on top of the (partial) frame of the original trap
+	// being handled, another interrupt trap frame is constructed on the
+	// kernel stack.
+	//
+	// original trap has                 original trap has
+	// no error code                     error code
+	// (frame addr diff by 3)            (frame addr diff by 4)
+	//
+	//                                   |    ...   |
+	//                                   |----------|
+	// |    ...   |  upper part: trap    |    eip   |
+	// |----------|  frame resulted from |----------|
+	// |    eip   |  interrupting of the |     | cs |
+	// |----------|  trap handler        |----------|
+	// |     | cs |                      |  eflags  |
+	// |----------|                  --> |==========|
+	// |  eflags  |                  |   |    err   |
+	// |==========| <- frame border --   |----------|
+	// |    eip   |                      |    eip   |
+	// |----------|                      |----------|
+	// |     | cs |  lower part: the     |     | cs |
+	// |----------|  (partial) frame of  |----------|
+	// |  eflags  |  the trap whose      |  eflags  |
+	// |----------|  handler is          |----------|
+	// |    esp   |  interrupted before  |    esp   |
+	// |----------|  execution of 'cli'  |----------|
+	// |     | ss |                      |     | ss |
+	// ============ <-- stack bottom --> ============
+	//
+	// Info about the bottom frame shall be recovered and copied to the
+	// upper interrupt trap frame. Copying shall be performed from upper to
+	// bottom as the two frames overlap and the bottom one will be
+	// overwritten partially.
+
+	extern void th_divide(void);
+	extern void th_debug(void);
+	extern void th_nmi(void);
+	extern void th_brkpt(void);
+	extern void th_oflow(void);
+	extern void th_bound(void);
+	extern void th_illop(void);
+	extern void th_device(void);
+	extern void th_dblflt(void);
+	extern void th_tss(void);
+	extern void th_segnp(void);
+	extern void th_stack(void);
+	extern void th_gpflt(void);
+	extern void th_pgflt(void);
+	extern void th_fperr(void);
+	extern void th_align(void);
+	extern void th_mchk(void);
+	extern void th_simderr(void);
+	extern void th_syscall(void);
+	extern void th_default(void);
+	extern void th_irq_0(void);
+	extern void th_irq_1(void);
+	extern void th_irq_2(void);
+	extern void th_irq_3(void);
+	extern void th_irq_4(void);
+	extern void th_irq_5(void);
+	extern void th_irq_6(void);
+	extern void th_irq_7(void);
+	extern void th_irq_8(void);
+	extern void th_irq_9(void);
+	extern void th_irq_10(void);
+	extern void th_irq_11(void);
+	extern void th_irq_12(void);
+	extern void th_irq_13(void);
+	extern void th_irq_14(void);
+	extern void th_irq_15(void);
+
+	uint32_t tno;
+	struct Trapframe *tf1 = ((struct Trapframe *) KSTACKTOP - 1);
+	if (tf == tf1)  // same frame? then no TH interrupting; nothing to do
+		return;
+	// Shall already in kernel mode and actually handling interrupt
+	assert((tf->tf_cs & 3) != 3 && tf->tf_trapno == IRQ_OFFSET);
+
+	// Deduce the trap number of the trap whose TH is interrupted, based on
+	// the fact that tf->tf_eip always contains address of the 'cli'
+	// instruction, and hence the TH address, since 'cli' instructions are
+	// always the first ones of the THs.
+	if      (tf->tf_eip == (uintptr_t) &th_divide)  tno = T_DIVIDE;
+	else if (tf->tf_eip == (uintptr_t) &th_debug)   tno = T_DEBUG;
+	else if (tf->tf_eip == (uintptr_t) &th_nmi)     tno = T_NMI;
+	else if (tf->tf_eip == (uintptr_t) &th_brkpt)   tno = T_BRKPT;
+	else if (tf->tf_eip == (uintptr_t) &th_oflow)   tno = T_OFLOW;
+	else if (tf->tf_eip == (uintptr_t) &th_bound)   tno = T_BOUND;
+	else if (tf->tf_eip == (uintptr_t) &th_illop)   tno = T_ILLOP;
+	else if (tf->tf_eip == (uintptr_t) &th_device)  tno = T_DEVICE;
+	else if (tf->tf_eip == (uintptr_t) &th_dblflt)  tno = T_DBLFLT;
+	else if (tf->tf_eip == (uintptr_t) &th_tss)     tno = T_TSS;
+	else if (tf->tf_eip == (uintptr_t) &th_segnp)   tno = T_SEGNP;
+	else if (tf->tf_eip == (uintptr_t) &th_stack)   tno = T_STACK;
+	else if (tf->tf_eip == (uintptr_t) &th_gpflt)   tno = T_GPFLT;
+	else if (tf->tf_eip == (uintptr_t) &th_pgflt)   tno = T_PGFLT;
+	else if (tf->tf_eip == (uintptr_t) &th_fperr)   tno = T_FPERR;
+	else if (tf->tf_eip == (uintptr_t) &th_align)   tno = T_ALIGN;
+	else if (tf->tf_eip == (uintptr_t) &th_mchk)    tno = T_MCHK;
+	else if (tf->tf_eip == (uintptr_t) &th_simderr) tno = T_SIMDERR;
+	else if (tf->tf_eip == (uintptr_t) &th_syscall) tno = T_SYSCALL;
+	else if (tf->tf_eip == (uintptr_t) &th_default) tno = T_DEFAULT;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_0)   tno = IRQ_OFFSET + 0;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_1)   tno = IRQ_OFFSET + 1;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_2)   tno = IRQ_OFFSET + 2;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_3)   tno = IRQ_OFFSET + 3;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_4)   tno = IRQ_OFFSET + 4;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_5)   tno = IRQ_OFFSET + 5;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_6)   tno = IRQ_OFFSET + 6;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_7)   tno = IRQ_OFFSET + 7;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_8)   tno = IRQ_OFFSET + 8;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_9)   tno = IRQ_OFFSET + 9;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_10)  tno = IRQ_OFFSET + 10;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_11)  tno = IRQ_OFFSET + 11;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_12)  tno = IRQ_OFFSET + 12;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_13)  tno = IRQ_OFFSET + 13;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_14)  tno = IRQ_OFFSET + 14;
+	else if (tf->tf_eip == (uintptr_t) &th_irq_15)  tno = IRQ_OFFSET + 15;
+	else panic("the interrupted TH at 0x%08x is not recognized.\n");
+	tf->tf_trapno = tno;
+
+	// Copy relevant values from the bottom trap frame in the upper frame.
+	if (&tf1->tf_eip - &tf->tf_eip == 4)
+		tf->tf_err = tf1->tf_err;
+	else
+		assert(&tf1->tf_eip - &tf->tf_eip == 3);
+	tf->tf_eip = tf1->tf_eip;
+	tf->tf_cs = tf1->tf_cs;
+	tf->tf_eflags = tf1->tf_eflags;
+	tf->tf_esp = tf1->tf_esp;
+	tf->tf_ss = tf1->tf_ss;
+}
+
 void
 trap(struct Trapframe *tf)
 {
+	recover_tf_if_interrupted(tf);
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.
 		// Copy trap frame (which is currently on the stack)
