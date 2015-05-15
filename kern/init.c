@@ -54,6 +54,8 @@ i386_init(void)
 	// Touch all you want.
 	ENV_CREATE(user_forktree);
 	ENV_CREATE(user_spin);
+	ENV_CREATE(user_pingpong);
+	ENV_CREATE(user_primes);
 #endif // TEST*
 
 

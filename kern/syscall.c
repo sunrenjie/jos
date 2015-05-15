@@ -320,7 +320,51 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_try_send not implemented");
+	int r;
+	struct Env *src_env, *dst_env;
+	struct Page *p;
+	pte_t *pte;
+	void *dstva;
+	int ret;
+	if ((r = envid2env(0, &src_env, 1)) < 0)
+		return r;
+	if ((r = envid2env(envid, &dst_env, 0)) < 0)
+		return r;
+	dstva = dst_env->env_ipc_dstva;
+	if (!dst_env->env_ipc_recving)
+		return -E_IPC_NOT_RECV;
+	if (srcva >= (void *)UTOP || dstva >= (void *)UTOP) {
+		// Either sender or receiver (or both) not asking for page
+		// mapping. We tolerate the conditions when one side intends
+		// for page mapping while the other side does not. The page
+		// mapping succeeds iff dst_env->env_ipc_perm is non-zero when
+		// the system call sys_ipc_recv() returns 0 (the receiver
+		// part), and that this system call returns 1 (the sender part).
+		perm = 0;
+		ret = 0;
+		goto to_return;
+	} else {
+		// both agree on page sending
+		if ((uint32_t) srcva % PGSIZE ||
+		    (perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P) ||
+		    perm & (~PTE_USER)) // sender va+permission error
+			return -E_INVAL;
+		// No need to verify dstva, now that sys_ipc_recv() does so.
+		p = page_lookup(src_env->env_pgdir, srcva, &pte);
+		if (p == NULL || ((perm & PTE_W) && !((*pte) & PTE_W)))
+			return -E_INVAL; // mapping of the page to send error
+		if ((r = page_insert(dst_env->env_pgdir, p, dstva, perm) < 0))
+			return r;
+		ret = 1;
+		goto to_return;
+	}
+to_return:
+	dst_env->env_ipc_recving = 0;
+	dst_env->env_ipc_perm = perm;
+	dst_env->env_ipc_from = src_env->env_id;
+	dst_env->env_ipc_value = value;
+	dst_env->env_status = ENV_RUNNABLE;
+	return ret;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -338,8 +382,17 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
-	return 0;
+	int r;
+	struct Env *e;
+	if ((r = envid2env(0, &e, 1)) < 0)
+		return r;
+	if (dstva < (void *)UTOP && (uint32_t) dstva % PGSIZE)
+		return -E_INVAL;
+	e->env_ipc_dstva = dstva;
+	e->env_ipc_recving = 1;
+	e->env_status = ENV_NOT_RUNNABLE;
+	sched_yield();
+	return 0; // actually never returns
 }
 
 
@@ -386,6 +439,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	case SYS_ipc_try_send:
 		return (uint32_t) sys_ipc_try_send((envid_t) a1, (uint32_t) a2,
 			(void *) a3, (unsigned) a4);
+	case SYS_ipc_recv:
+		return (int) sys_ipc_recv((void *)a1);
 	default:
 		return -E_INVAL;
 	}
