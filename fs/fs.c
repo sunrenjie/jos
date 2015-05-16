@@ -51,8 +51,7 @@ block_is_dirty(uint32_t blockno)
 int
 map_block(uint32_t blockno)
 {
-	if (block_is_mapped(blockno))
-		return 0;
+	// caller shall call block_is_mapped() first to verify.
 	return sys_page_alloc(0, diskaddr(blockno), PTE_U|PTE_P|PTE_W);
 }
 
@@ -75,7 +74,20 @@ read_block(uint32_t blockno, char **blk)
 		panic("reading free block %08x\n", blockno);
 
 	// LAB 5: Your code here.
-	panic("read_block not implemented");
+	addr = diskaddr(blockno);
+	if (block_is_mapped(blockno)) {
+		goto succeeded;
+	}
+
+	// now that the block is not in memory, allocate memory and read it in.
+	if ((r = map_block(blockno)) < 0)
+		return r;
+	if ((r = ide_read(blockno * BLKSECTS, addr, BLKSECTS)) < 0)
+		return r;
+
+succeeded:
+	if (blk)
+		*blk = addr;
 	return 0;
 }
 
@@ -86,6 +98,7 @@ read_block(uint32_t blockno, char **blk)
 void
 write_block(uint32_t blockno)
 {
+	int r;
 	char *addr;
 
 	if (!block_is_mapped(blockno))
@@ -93,7 +106,11 @@ write_block(uint32_t blockno)
 	
 	// Write the disk block and clear PTE_D.
 	// LAB 5: Your code here.
-	panic("write_block not implemented");
+	addr = diskaddr(blockno);
+	if ((r = ide_write(blockno * BLKSECTS, addr, BLKSECTS)) < 0)
+		panic("write_block: ide_write failed: %e.\n", r);
+	if ((r = sys_page_map(0, addr, 0, addr, PTE_USER)) < 0)
+		panic("write_block: sys_page_map failed: %e.\n", r);
 }
 
 // Make sure this block is unmapped.
