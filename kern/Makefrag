@@ -36,23 +36,13 @@ KERN_SRCFILES := $(wildcard $(KERN_SRCFILES))
 
 # Binary program images to embed within the kernel.
 KERN_BINFILES :=	user/idle \
-			user/yield \
-			user/dumbfork \
-			user/faultread \
-			user/faultwrite \
-			user/faultdie \
-			user/faultalloc \
-			user/faultallocbad \
-			user/faultnostack \
-			user/faultbadhandler \
-			user/faultevilhandler \
 			user/forktree \
-			user/spin \
-			user/fairness \
 			user/pingpong \
-			user/pingpongs \
 			user/primes \
-			user/hello
+			user/testfsipc \
+			user/writemotd \
+			user/icode \
+			fs/fs
 
 KERN_OBJFILES := $(patsubst %.c, $(OBJDIR)/%.o, $(KERN_SRCFILES))
 KERN_OBJFILES := $(patsubst %.S, $(OBJDIR)/%.o, $(KERN_OBJFILES))
@@ -84,14 +74,14 @@ $(OBJDIR)/kern/kernel: $(KERN_OBJFILES) $(KERN_BINFILES) kern/kernel.ld
 	$(V)$(NM) -n $@ > $@.sym
 
 # How to build the Bochs disk image
-$(IMAGE): $(OBJDIR)/kern/kernel $(OBJDIR)/boot/boot
+$(OBJDIR)/kern/kernel.img: $(OBJDIR)/kern/kernel $(OBJDIR)/boot/boot
 	@echo + mk $@
-	$(V)dd if=/dev/zero of=$(IMAGE)~ count=10000 2>/dev/null
-	$(V)dd if=$(OBJDIR)/boot/boot of=$(IMAGE)~ conv=notrunc 2>/dev/null
-	$(V)dd if=$(OBJDIR)/kern/kernel of=$(IMAGE)~ seek=1 conv=notrunc 2>/dev/null
-	$(V)mv $(IMAGE)~ $(IMAGE)
+	$(V)dd if=/dev/zero of=$(OBJDIR)/kern/kernel.img~ count=10000 2>/dev/null
+	$(V)dd if=$(OBJDIR)/boot/boot of=$(OBJDIR)/kern/kernel.img~ conv=notrunc 2>/dev/null
+	$(V)dd if=$(OBJDIR)/kern/kernel of=$(OBJDIR)/kern/kernel.img~ seek=1 conv=notrunc 2>/dev/null
+	$(V)mv $(OBJDIR)/kern/kernel.img~ $(OBJDIR)/kern/kernel.img
 
-all: $(IMAGE)
+all: $(OBJDIR)/kern/kernel.img
 
 grub: $(OBJDIR)/jos-grub
 

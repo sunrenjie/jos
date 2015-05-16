@@ -89,7 +89,7 @@ PERL	:= perl
 # Compiler flags
 # -fno-builtin is required to avoid refs to undefined functions in the kernel.
 # Only optimize to -O1 to discourage inlining, which complicates backtraces.
-CFLAGS	:= $(CFLAGS) $(DEFS) $(LABDEFS) -O -fno-builtin -I$(TOP) -MD -Wall -Wno-format -Wno-unused -Werror -gstabs -m32
+CFLAGS	:= $(CFLAGS) $(DEFS) $(LABDEFS) -O -fno-builtin -I$(TOP) -MD -Wall -Wno-format -Wno-unused -Werror -m32
 CFLAGS += -fno-omit-frame-pointer
 # -fno-tree-ch prevented gcc from sometimes reordering read_ebp() before
 # mon_backtrace()'s function prologue on gcc version: (Debian 4.7.2-5) 4.7.2
@@ -125,13 +125,14 @@ all:
 KERN_CFLAGS := $(CFLAGS) -DJOS_KERNEL -gstabs
 USER_CFLAGS := $(CFLAGS) -DJOS_USER -gstabs
 
-IMAGE = $(OBJDIR)/kern/kernel.img
+IMAGES = $(OBJDIR)/kern/kernel.img  $(OBJDIR)/fs/fs.img
 
 # Include Makefrags for subdirectories
 include boot/Makefrag
 include kern/Makefrag
 include lib/Makefrag
 include user/Makefrag
+include fs/Makefrag
 
 QEMUOPTS = -hda $(OBJDIR)/kern/kernel.img -serial mon:stdio -gdb tcp::$(GDBPORT)
 QEMUOPTS += $(shell if $(QEMU) -nographic -help | grep -q '^-D '; then echo '-D qemu.log'; fi)
@@ -145,22 +146,22 @@ gdb:
 
 pre-qemu: .gdbinit
 
-qemu: $(IMAGE) pre-qemu
+qemu: $(IMAGES) pre-qemu
 	$(QEMU) $(QEMUOPTS)
 
-qemu-nox: $(IMAGE) pre-qemu
+qemu-nox: $(IMAGES) pre-qemu
 	@echo "***"
 	@echo "*** Use Ctrl-a x to exit qemu"
 	@echo "***"
 	$(QEMU) -nographic $(QEMUOPTS)
 
-qemu-gdb: $(IMAGE) pre-qemu
+qemu-gdb: $(IMAGES) pre-qemu
 	@echo "***"
 	@echo "*** Now run 'make gdb'." 1>&2
 	@echo "***"
 	$(QEMU) $(QEMUOPTS) -S
 
-qemu-nox-gdb: $(IMAGE) pre-qemu
+qemu-nox-gdb: $(IMAGES) pre-qemu
 	@echo "***"
 	@echo "*** Now run 'make gdb'." 1>&2
 	@echo "***"
@@ -205,13 +206,13 @@ endif
 
 # TODO: graceful exit when the bochs* executable is not found.
 
-bochs: $(IMAGE) $(BOCHSRC)
+bochs: $(IMAGES) $(BOCHSRC)
 	$(BOCHS) -q -f $(BOCHSRC)
 
-bochs-dbg: $(IMAGE) $(BOCHSRC)
+bochs-dbg: $(IMAGES) $(BOCHSRC)
 	$(BOCHS) -q -f $(BOCHSRC)
 
-bochs-gdb: $(IMAGE) $(BOCHSRC)-gdb .gdbinit
+bochs-gdb: $(IMAGES) $(BOCHSRC)-gdb .gdbinit
 	$(BOCHS) -q -f $(BOCHSRC)-gdb
 
 # For deleting the build
@@ -238,13 +239,13 @@ tarball: realclean
 
 # For test runs
 run-%:
-	$(V)rm -f $(OBJDIR)/kern/init.o $(IMAGE)
-	$(V)$(MAKE) "DEFS=-DTEST=_binary_obj_user_$*_start -DTESTSIZE=_binary_obj_user_$*_size" $(IMAGE)
+	$(V)rm -f $(OBJDIR)/kern/init.o $(IMAGES)
+	$(V)$(MAKE) "DEFS=-DTEST=_binary_obj_user_$*_start -DTESTSIZE=_binary_obj_user_$*_size" $(IMAGES)
 	bochs -q 'display_library: nogui'
 
 xrun-%:
-	$(V)rm -f $(OBJDIR)/kern/init.o $(IMAGE)
-	$(V)$(MAKE) "DEFS=-DTEST=_binary_obj_user_$*_start -DTESTSIZE=_binary_obj_user_$*_size" $(IMAGE)
+	$(V)rm -f $(OBJDIR)/kern/init.o $(IMAGES)
+	$(V)$(MAKE) "DEFS=-DTEST=_binary_obj_user_$*_start -DTESTSIZE=_binary_obj_user_$*_size" $(IMAGES)
 	bochs -q
 
 # This magic automatically generates makefile dependencies
