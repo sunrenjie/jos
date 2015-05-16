@@ -262,4 +262,5 @@ always:
 	@:
 
 .PHONY: all always \
+	.gdbinit $(BOCHSRC) $(BOCHSRC)-gdb \
 	handin tarball clean realclean clean-labsetup distclean grade labsetup
