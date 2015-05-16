@@ -55,9 +55,9 @@ i386_init(void)
 	ENV_CREATE2(TEST, TESTSIZE)
 #else
 	// Touch all you want.
-	ENV_CREATE(user_forktree);
-	ENV_CREATE(user_pingpong);
-	ENV_CREATE(user_primes);
+	// ENV_CREATE(user_writemotd);
+	// ENV_CREATE(user_testfsipc);
+	// ENV_CREATE(user_icode);
 #endif // TEST*
 
 

@@ -348,6 +348,8 @@ env_create(uint8_t *binary, size_t size)
 	if ((r = env_alloc(&e, 0)) != 0)
 		panic("env_create: %e", r);
 	load_icode(e, binary, size);
+	if (ENVX(e->env_id) == 1) // the fs/fs process
+		e->env_tf.tf_eflags |= FL_IOPL_3;
 }
 
 //
