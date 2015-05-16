@@ -1,9 +1,8 @@
-# Configuration for running JOS under bochs-2.4.6
+# Configuration for running JOS under bochs-2.6.8
 romimage: file=$BXSHARE/BIOS-bochs-latest
 cpu: count=1, ips=50000000, reset_on_triple_fault=1, ignore_bad_msrs=1, msrs="msrs.def"
-cpuid: mmx=1, sep=1, sse=sse4_2, xapic=1, aes=1, movbe=1, xsave=1
+cpuid: mmx=1, sep=1, simd=sse4_2, apic=xapic, aes=1, movbe=1, xsave=1
 cpuid: stepping=5
-cpuid: cpuid_limit_winnt=0
 memory: guest=512, host=256
 vgaromimage: file=$BXSHARE/VGABIOS-lgpl-latest
 vga: extension=vbe
@@ -18,10 +17,5 @@ info: action=report
 debug: action=ignore
 debugger_log: -
 parport1: enabled=1, file="bochs.parport.log"
-vga_update_interval: 300000
-keyboard_serial_delay: 250
-keyboard_paste_delay: 100000
 mouse: enabled=0
 private_colormap: enabled=0
-keyboard_mapping: enabled=0, map=
-i440fxsupport: enabled=1
