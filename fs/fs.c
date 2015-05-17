@@ -159,7 +159,16 @@ int
 alloc_block_num(void)
 {
 	// LAB 5: Your code here.
-	panic("alloc_block_num not implemented");
+	// Search immediately after the bitmap blocks.
+	int i;
+	for (i = 2 + (super->s_nblocks - 1) / BLKBITSIZE + 1;
+	     i <= super->s_nblocks; i++) {
+		if (block_is_free(i)) {
+			bitmap[i / 32] ^= 1 << (i % 32);
+			write_block(2 + (i - 1) / BLKBITSIZE);
+			return i;
+		}
+	}
 	return -E_NO_DISK;
 }
 
@@ -218,7 +227,6 @@ read_bitmap(void)
 {
 	int r;
 	uint32_t i;
-	char *blk;
 
 	// Read the bitmap into memory.
 	// The bitmap consists of one or more blocks.  A single bitmap block
@@ -228,7 +236,12 @@ read_bitmap(void)
 	// Hint: Use read_block.
 
 	// LAB 5: Your code here.
-	panic("read_bitmap not implemented");
+	// bitmap blocks start at block 2.
+	for (i = 0; i < (super->s_nblocks - 1) / BLKBITSIZE + 1; i++) {
+		if ((r = read_block(i + 2, NULL)) < 0)
+			panic("read_block for bitmap %d failed: %e.\n", i, r);
+	}
+	bitmap = (uint32_t *) diskaddr(2);
 
 	// Make sure the reserved and root blocks are marked in-use.
 	assert(!block_is_free(0));
@@ -237,7 +250,8 @@ read_bitmap(void)
 
 	// Make sure that the bitmap blocks are marked in-use.
 	// LAB 5: Your code here.
-
+	for (i = 0; i < super->s_nblocks / BLKBITSIZE; i++)
+		assert(!block_is_free(i + 2));
 	cprintf("read_bitmap is good\n");
 }
 
