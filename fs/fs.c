@@ -187,6 +187,7 @@ alloc_block(void)
 		free_block(bno);
 		return r;
 	}
+	memset(diskaddr(bno), 0, BLKSIZE);
 	return bno;
 }
 
@@ -408,7 +409,10 @@ file_get_block(struct File *f, uint32_t filebno, char **blk)
 	// Read in the block, leaving the pointer in *blk.
 	// Hint: Use file_map_block and read_block.
 	// LAB 5: Your code here.
-	panic("file_get_block not implemented");
+	if ((r = file_map_block(f, filebno, &diskbno, 1) < 0))
+		return r;
+	if ((r = read_block(diskbno, blk)) < 0)
+		return r;
 	return 0;
 }
 
@@ -577,7 +581,10 @@ file_open(const char *path, struct File **pf)
 {
 	// Hint: Use walk_path.
 	// LAB 5: Your code here.
-	panic("file_open not implemented");
+	int r;
+	struct File *pdir;
+	if ((r = walk_path(path, &pdir, pf, NULL)) < 0)
+		return r;
 	return 0;
 }
 
@@ -594,11 +601,39 @@ static void
 file_truncate_blocks(struct File *f, off_t newsize)
 {
 	int r;
-	uint32_t bno, old_nblocks, new_nblocks;
+	off_t old_nblocks, new_nblocks;
+	int i, b = -1, e = -1;
+	uint32_t *indirect;
 
 	// Hint: Use file_clear_block and/or free_block.
 	// LAB 5: Your code here.
-	panic("file_truncate_blocks not implemented");
+	old_nblocks = f->f_size ? (f->f_size - 1) / BLKSIZE + 1 : 0;
+	new_nblocks = newsize ? (newsize - 1) / BLKSIZE + 1 : 0;
+	if (old_nblocks <= new_nblocks)
+		return;
+	if (old_nblocks <= NDIRECT) {
+		b = new_nblocks;
+		e = old_nblocks;
+	} else {
+		if ((r = read_block(f->f_indirect, (char **) &indirect)) < 0)
+			panic("read_block for indirect failed: %e\n", r);
+		for (i = MAX(new_nblocks, NDIRECT); i < old_nblocks; i++) {
+			free_block(indirect[i]);
+			indirect[i] = 0;
+		}
+		if (new_nblocks <= NDIRECT) {
+			free_block(f->f_indirect);
+			f->f_indirect = 0;
+			b = new_nblocks;
+			e = NDIRECT;
+		}
+	}
+
+	// free direct blocks if necessary
+	for (i = b; i < e; i++) {
+		free_block(f->f_direct[i]);
+		f->f_direct[i] = 0;
+	}
 }
 
 int
@@ -622,7 +657,20 @@ void
 file_flush(struct File *f)
 {
 	// LAB 5: Your code here.
-	panic("file_flush not implemented");
+	int r;
+	off_t i;
+	uint32_t diskbno;
+	if (f->f_size == 0)
+		return;
+	for (i = 0; i < (f->f_size - 1) / BLKSIZE + 1; i++) {
+		// Blocks not even allocated cannot be dirty.
+		if ((r = file_map_block(f, i, &diskbno, 0)) == -E_NOT_FOUND)
+			continue;
+		if (r)
+			panic("file_flush: file_map_block error: %e\n", r);
+		if (block_is_dirty(diskbno))
+			write_block(diskbno);
+	}
 }
 
 // Sync the entire file system.  A big hammer.
