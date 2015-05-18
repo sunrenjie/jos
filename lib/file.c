@@ -41,7 +41,19 @@ open(const char *path, int mode)
 	// If any step fails, use fd_close to free the file descriptor.
 
 	// LAB 5: Your code here.
-	panic("open() unimplemented!");
+	int r;
+	struct Fd *fd;
+	if ((r = fd_alloc(&fd)) < 0)
+		goto error;
+	if ((r = fsipc_open(path, mode, fd)) < 0)
+		goto error;
+	if ((r = fmap(fd, 0, fd->fd_file.file.f_size)) < 0)
+		goto error;
+	return fd2num(fd);
+
+error:
+	fd_close(fd, 0);
+	return r;
 }
 
 // Clean up a file-server file descriptor.
@@ -54,7 +66,19 @@ file_close(struct Fd *fd)
 	// (to free up its resources).
 
 	// LAB 5: Your code here.
-	panic("close() unimplemented!");
+	int i;
+	int r;
+	char *data = fd2data(fd);
+	for (i = 0; i < fd->fd_file.file.f_size / PGSIZE; i += PGSIZE) {
+		if (pageref(data + i)) {
+			if ((fd->fd_omode & O_WRONLY) &&
+					(vpt[VPN(data)] & PTE_D))
+				if ((r = fsipc_dirty(fd->fd_file.id, i)) < 0)
+					return r;
+			sys_page_unmap(0, data + i);
+		}
+	}
+	return 0;
 }
 
 // Read 'n' bytes from 'fd' at the current seek position into 'buf'.
