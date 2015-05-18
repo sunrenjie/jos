@@ -206,7 +206,19 @@ serve_map(envid_t envid, struct Fsreq_map *rq)
 	// (see the O_ flags in inc/lib.h).
 	
 	// LAB 5: Your code here.
-	panic("serve_map not implemented");
+	if ((r = openfile_lookup(envid, rq->req_fileid, &o)) < 0)
+		goto out;
+
+	r = file_get_block(o->o_file, (uint32_t) rq->req_offset / BLKSIZE, &blk);
+
+out:
+	if (r == 0) {
+		perm = PTE_P | PTE_U | (o->o_mode & O_ACCMODE ? PTE_W : 0);
+	} else {
+		blk = 0;
+		perm = 0;
+	}
+	ipc_send(envid, r, blk, perm);
 }
 
 void
@@ -221,7 +233,13 @@ serve_close(envid_t envid, struct Fsreq_close *rq)
 	// Close the file.
 	
 	// LAB 5: Your code here.
-	panic("serve_close not implemented");
+	if ((r = openfile_lookup(envid, rq->req_fileid, &o)) < 0)
+		goto out;
+
+	file_close(o->o_file);
+
+out:
+	ipc_send(envid, r, 0, 0);
 }
 
 void
@@ -238,7 +256,10 @@ serve_remove(envid_t envid, struct Fsreq_remove *rq)
 	// Hint: Make sure the path is null-terminated!
 
 	// LAB 5: Your code here.
-	panic("serve_remove not implemented");
+	strcpy(path, rq->req_path);
+	r = file_remove(path);
+
+	ipc_send(envid, r, 0, 0);
 }
 
 void
@@ -246,6 +267,7 @@ serve_dirty(envid_t envid, struct Fsreq_dirty *rq)
 {
 	struct OpenFile *o;
 	int r;
+	char *blk;
 
 	if (debug)
 		cprintf("serve_dirty %08x %08x %08x\n", envid, rq->req_fileid, rq->req_offset);
@@ -254,7 +276,17 @@ serve_dirty(envid_t envid, struct Fsreq_dirty *rq)
 	// Returns 0 on success, < 0 on error.
 	
 	// LAB 5: Your code here.
-	panic("serve_dirty not implemented");
+	if ((r = openfile_lookup(envid, rq->req_fileid, &o)) < 0)
+		goto out;
+
+	r = file_get_block(o->o_file, (uint32_t) rq->req_offset / BLKSIZE, &blk);
+	if (r < 0)
+		goto out;
+
+	r = sys_page_map(0, blk, 0, blk, PTE_P | PTE_W | PTE_U | PTE_D);
+
+out:
+	ipc_send(envid, r, 0, 0);
 }
 
 void
