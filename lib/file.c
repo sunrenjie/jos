@@ -81,6 +81,16 @@ file_close(struct Fd *fd)
 	return 0;
 }
 
+int
+file_get_size(int fdnum)
+{
+	int r;
+	struct Fd *fd;
+	if ((r = fd_lookup(fdnum, &fd)) < 0)
+		return r;
+	return fd->fd_file.file.f_size;
+}
+
 // Read 'n' bytes from 'fd' at the current seek position into 'buf'.
 // Since files are memory-mapped, this amounts to a memcpy()
 // surrounded by a little red tape to handle the file size and seek pointer.

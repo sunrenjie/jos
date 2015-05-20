@@ -90,6 +90,7 @@ int	stat(const char *path, struct Stat *statbuf);
 // file.c
 int	open(const char *path, int mode);
 int	read_map(int fd, off_t offset, void **blk);
+int	file_get_size(int fd);
 int	ftruncate(int fd, off_t size);
 int	remove(const char *path);
 int	sync(void);

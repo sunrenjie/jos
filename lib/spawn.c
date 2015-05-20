@@ -5,6 +5,12 @@
 #define UTEMP2			(UTEMP + PGSIZE)
 #define UTEMP3			(UTEMP2 + PGSIZE)
 
+// [BINARY, BINARY + 0x8000000) will be used by spawn to load the program
+// binary, while [SEGMENT, SEGMENT + 0x8000000) for preparing segments that
+// need zeroing.
+#define BINARY 0xB0000000
+#define SEGMENT 0xB8000000
+
 // Helper functions for spawn.
 static int init_stack(envid_t child, const char **argv, uintptr_t *init_esp);
 
@@ -17,8 +23,12 @@ int
 spawn(const char *prog, const char **argv)
 {
 	unsigned char elf_buf[512];
+	struct Elf *elf;
+	struct Proghdr *ph, *eph;
 	struct Trapframe child_tf;
 	envid_t child;
+	int r, i, fdnum, file_size, delta, perm;
+	void *binary, *segment, *segment_end, *va;
 
 	// Insert your code, following approximately this procedure:
 	//
@@ -82,9 +92,80 @@ spawn(const char *prog, const char **argv)
 	//   - Start the child process running with sys_env_set_status().
 
 	// LAB 5: Your code here.
+	// load the program image into BINARY
+	if ((r = fdnum = open(prog, O_RDONLY)) < 0)
+		return r;
+	if ((r = file_size = file_get_size(fdnum)) < 0)
+		return r;
+	binary = (void *) BINARY;
+	for (i = 0; i < file_size; i += BLKSIZE) {
+		if ((r = read_map(fdnum, i, &va)) < 0)
+			return r;
+		if ((r = sys_page_map(0, va, 0, binary + i, PTE_P|PTE_U)) < 0)
+			return r;
+	}
+
+	if ((r = child = sys_exofork()) < 0)
+		return r;
+	if (r == 0)
+		return 0;
+
+	// verify ELF and load the segments
+	elf = (struct Elf *) binary;
+	if (elf->e_magic != ELF_MAGIC)
+		return -E_NOT_EXEC;
+	ph = (struct Proghdr *) (binary + elf->e_phoff);
+	eph = ph + elf->e_phnum;
+	for (; ph < eph; ph++) {
+		if (ph->p_type != ELF_PROG_LOAD)
+			continue;
+		if (ph->p_flags & ELF_PROG_FLAG_WRITE) {
+			// prepare segment memory in our address space
+			segment = (void *) SEGMENT;
+			segment_end = segment +
+				      ROUNDDOWN(ph->p_offset + ph->p_memsz - 1, PGSIZE) -
+				      ROUNDDOWN(ph->p_offset, PGSIZE) + PGSIZE;
+			for (va = segment; va < segment_end; va += PGSIZE) {
+				if ((r = sys_page_alloc(0, va, PTE_P|PTE_U|PTE_W)) < 0)
+					return r;
+				memset(va, 0, PGSIZE);
+			}
+			// segment va diff in children's/our address space
+			delta = ROUNDDOWN(ph->p_va, PGSIZE) - (uint32_t) segment;
+			memcpy((void *) ph->p_va - delta,
+			       binary + ph->p_offset, ph->p_filesz);
+			perm = PTE_P | PTE_U | PTE_W;
+		} else {
+			segment = ROUNDDOWN(binary + ph->p_offset, PGSIZE);
+			segment_end = ROUNDDOWN(binary + ph->p_offset + ph->p_filesz - 1,
+						PGSIZE) + PGSIZE;
+			delta = ROUNDDOWN(ph->p_va, PGSIZE) - (uint32_t) segment;
+			perm = PTE_P | PTE_U;
+		}
+		// map segment memory into children's address space
+		for (va = segment; va < segment_end; va += PGSIZE) {
+			if ((r = sys_page_map(0, va, child, va + delta, perm)) < 0)
+				return r;
+			if ((r = sys_page_unmap(0, va)) < 0)
+				return r;
+		}
+	}
+
+	child_tf = envs[ENVX(child)].env_tf;
+	child_tf.tf_eip = elf->e_entry;
+
+	// clean up the mappings for the binary image
+	for (i = 0; i < file_size; i += BLKSIZE)
+		if ((r = sys_page_unmap(0, binary + i)) < 0)
+			return r;
 	
-	(void) child;
-	panic("spawn unimplemented!");
+	if ((r = init_stack(child, argv, &child_tf.tf_esp)) < 0)
+		return r;
+	if ((r = sys_env_set_trapframe(child, &child_tf)) < 0)
+		return r;
+	if ((r = sys_env_set_status(child, ENV_RUNNABLE)) < 0)
+		return r;
+	return child;
 }
 
 // Spawn, taking command-line arguments array directly on the stack.
@@ -161,7 +242,15 @@ init_stack(envid_t child, const char **argv, uintptr_t *init_esp)
 	//	  (Again, use an address valid in the child's environment.)
 	//
 	// LAB 5: Your code here.
-	*init_esp = USTACKTOP;	// Change this!
+	*(argv_store - 1) = (uintptr_t) UTEMP2USTACK(argv_store);
+	*(argv_store - 2) = (uintptr_t) argc;
+	for (i = 0; i < argc; i++) {
+		argv_store[i] = (uintptr_t) UTEMP2USTACK(string_store);
+		string_store = strcpy(string_store, argv[i]);
+	}
+
+	// Just set stack top to &argc; see _start at lib/entry.S.
+	*init_esp = (uintptr_t) UTEMP2USTACK(argv_store - 2);
 
 	// After completing the stack, map it into the child's address space
 	// and unmap it from ours!
