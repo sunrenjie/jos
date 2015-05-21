@@ -29,7 +29,7 @@ spawn(const char *prog, const char **argv)
 	struct Trapframe child_tf;
 	envid_t child;
 	int r, i, fdnum, file_size, delta, perm;
-	void *binary, *segment, *segment_end, *va;
+	void *binary, *segment, *segment_end, *va, *va2;
 
 	// Insert your code, following approximately this procedure:
 	//
@@ -159,7 +159,23 @@ spawn(const char *prog, const char **argv)
 	for (i = 0; i < file_size; i += BLKSIZE)
 		if ((r = sys_page_unmap(0, binary + i)) < 0)
 			return r;
-	
+
+	// propagate PTE_SHARE pages
+	perm = PTE_P | PTE_U | PTE_SHARE;
+	for (va = (void *) 0; va < (void *) UTOP; va += PTSIZE) {
+		if (!(vpd[VPD(va)] & PTE_P)) // page dir NA
+			continue;
+		for (va2 = ROUNDDOWN(va, PTSIZE);
+		     va2 < MIN(ROUNDDOWN(va, PTSIZE) + PTSIZE, (void *) UTOP);
+		     va2 += PGSIZE) {
+			if ((vpt[VPN(va2)] & perm) != perm) // not SHARE page?
+				continue;
+			if ((r = sys_page_map(0, va2, child, va2,
+					      vpt[VPN(va2)] & PTE_USER)) < 0)
+				return r;
+		}
+	}
+
 	if ((r = init_stack(child, argv, &child_tf.tf_esp)) < 0)
 		return r;
 	if ((r = sys_env_set_trapframe(child, &child_tf)) < 0)

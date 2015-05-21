@@ -73,6 +73,8 @@ duppage(envid_t envid, unsigned pn)
 	// LAB 4: Your code here.
 	addr = (void *)((uint32_t)pn * PGSIZE);
 	pte = vpt[VPN(addr)];
+	if (pte & PTE_SHARE) // copy mapping for shared page
+		return sys_page_map(0, addr, envid, addr, (pte & PTE_USER));
 	if ((pte & PTE_W) || (pte & PTE_COW))
 		perm = PTE_P|PTE_U|PTE_COW;
 	else

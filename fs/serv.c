@@ -213,7 +213,7 @@ serve_map(envid_t envid, struct Fsreq_map *rq)
 
 out:
 	if (r == 0) {
-		perm = PTE_P | PTE_U | (o->o_mode & O_ACCMODE ? PTE_W : 0);
+		perm = PTE_P | PTE_U | PTE_SHARE | (o->o_mode & O_ACCMODE ? PTE_W : 0);
 	} else {
 		blk = 0;
 		perm = 0;
