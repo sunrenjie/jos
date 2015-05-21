@@ -58,8 +58,12 @@ i386_init(void)
 	ENV_CREATE(user_writemotd);
 	ENV_CREATE(user_testfsipc);
 	ENV_CREATE(user_icode);
+	// ENV_CREATE(user_pipereadeof);
+	// ENV_CREATE(user_pipewriteeof);
 #endif // TEST*
 
+	// Should not be necessary - drain keyboard because interrupt has given up.
+	kbd_intr();
 
 	// Schedule and run the first user environment!
 	sched_yield();
