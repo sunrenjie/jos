@@ -59,10 +59,11 @@ i386_init(void)
 	// ENV_CREATE(user_pipereadeof);
 	// ENV_CREATE(user_pipewriteeof);
 	// ENV_CREATE(user_testpipe);
-	ENV_CREATE(user_primespipe);
-	ENV_CREATE(user_testpiperace);
-	ENV_CREATE(user_testpiperace2);
+	// ENV_CREATE(user_primespipe);
+	// ENV_CREATE(user_testpiperace);
+	// ENV_CREATE(user_testpiperace2);
 	// ENV_CREATE(user_testfdsharing);
+	ENV_CREATE(user_testkbd);
 #endif // TEST*
 
 	// Should not be necessary - drain keyboard because interrupt has given up.

@@ -205,6 +205,9 @@ trap_dispatch(struct Trapframe *tf)
 	case IRQ_OFFSET:
 		sched_yield();
 		return;
+	case IRQ_OFFSET + 1:
+		kbd_intr();
+		return;
 	}
 
 	// Handle clock and serial interrupts.
