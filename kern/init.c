@@ -61,6 +61,7 @@ i386_init(void)
 	// ENV_CREATE(user_testpipe);
 	ENV_CREATE(user_primespipe);
 	ENV_CREATE(user_testpiperace);
+	ENV_CREATE(user_testpiperace2);
 	// ENV_CREATE(user_testfdsharing);
 #endif // TEST*
 

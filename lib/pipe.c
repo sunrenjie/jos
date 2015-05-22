@@ -89,10 +89,17 @@ _pipeisclosed(struct Fd *fd, struct Pipe *p)
 	// to the total number of readers and writers, then
 	// everybody left is what fd is.  So the other end of
 	// the pipe is closed.
+	uint32_t i;
+	bool e;
 
-	if (pageref(fd) == pageref(p))
-		return 1;
-	return 0;
+	while (1) {
+		i = env->env_runs;
+		e = pageref(fd) == pageref(p);
+		if (i == env->env_runs)
+			return e;
+		else
+			cprintf("_pipeisclosed: pipe race avoided\n");
+	}
 }
 
 int
