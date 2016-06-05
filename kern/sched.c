@@ -5,7 +5,7 @@
 #include <kern/monitor.h>
 
 static int
-next_nonzero_index_in_envs(i, n)
+next_nonzero_index_in_envs(int i, int n)
 {
 	if (++i != n)
 		return i;

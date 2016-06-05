@@ -49,6 +49,7 @@ i386_init(void)
 
 	// Start fs.
 	ENV_CREATE(fs_fs);
+	ENV_CREATE(user_icode);
 
 #if defined(TEST)
 	// Don't touch -- used by grading script!
@@ -63,7 +64,6 @@ i386_init(void)
 	// ENV_CREATE(user_testpiperace);
 	// ENV_CREATE(user_testpiperace2);
 	// ENV_CREATE(user_testfdsharing);
-	ENV_CREATE(user_testkbd);
 #endif // TEST*
 
 	// Should not be necessary - drain keyboard because interrupt has given up.

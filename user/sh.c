@@ -55,7 +55,13 @@ again:
 			// then close the original 'fd'.
 			
 			// LAB 5: Your code here.
-			panic("< redirection not implemented");
+			if ((fd = open(t, O_RDONLY)) < 0)
+				panic("open '%s' for < read failed: %e", t, fd);
+			if (fd != 0) {
+				if ((i = dup(fd, 0)) < 0)
+					panic("dup for < failed: %e", i);
+				close(fd);
+			}
 			break;
 			
 		case '>':	// Output redirection
@@ -73,7 +79,14 @@ again:
 			// then close the original 'fd'.
 			
 			// LAB 5: Your code here.
-			panic("> redirection not implemented");
+			if ((fd = open(t, O_WRONLY)) < 0)
+				panic("open '%s' for > write failed: %e",
+						t, fd);
+			if (fd != 1) {
+				if ((i = dup(fd, 1)) < 0)
+					panic("dup for > failed: %e", i);
+				close(fd);
+			}
 			break;
 			
 		case '|':	// Pipe
@@ -101,7 +114,24 @@ again:
 			//	the pipeline.
 
 			// LAB 5: Your code here.
-			panic("| not implemented");
+			if ((i = pipe(p)) < 0)
+				panic("pipe for | failed: %e", i);
+			if ((i = fork()) < 0)
+				panic("fork for | failed: %e", i);
+			if (i == 0) {
+				if ((i = dup(p[0], 0)) < 0)
+					panic("dup for | child failed: %e", i);
+				close(p[0]);
+				close(p[1]);
+				goto again;
+			} else {
+				pipe_child = i;
+				if ((i = dup(p[1], 1)) < 0)
+					panic("dup for | parent failed: %e", i);
+				close(p[0]);
+				close(p[1]);
+				goto runit;
+			}
 			break;
 
 		case 0:		// String is complete
