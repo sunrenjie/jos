@@ -82,6 +82,7 @@ again:
 			if ((fd = open(t, O_WRONLY)) < 0)
 				panic("open '%s' for > write failed: %e",
 						t, fd);
+			ftruncate(fd, 0); // reset file size
 			if (fd != 1) {
 				if ((i = dup(fd, 1)) < 0)
 					panic("dup for > failed: %e", i);

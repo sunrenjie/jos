@@ -206,6 +206,7 @@ init_stack(envid_t child, const char **argv, uintptr_t *init_esp)
 	size_t string_size;
 	int argc, i, r;
 	char *string_store;
+	const char *p;
 	uintptr_t *argv_store;
 
 	// Count the number of arguments (argc)
@@ -263,7 +264,9 @@ init_stack(envid_t child, const char **argv, uintptr_t *init_esp)
 	*(argv_store - 2) = (uintptr_t) argc;
 	for (i = 0; i < argc; i++) {
 		argv_store[i] = (uintptr_t) UTEMP2USTACK(string_store);
-		string_store = strcpy(string_store, argv[i]);
+		p = argv[i];
+		while ((*string_store++ = *p++) != '\0')
+			/* do nothing */;
 	}
 
 	// Just set stack top to &argc; see _start at lib/entry.S.

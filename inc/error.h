@@ -24,6 +24,10 @@
 #define E_FILE_EXISTS	13	// File already exists
 #define E_NOT_EXEC	14	// File not a valid executable
 
-#define MAXERROR	14
+// mutex
+#define E_MUTEX_EXHAUSTED 15 // Mutexes are exhausted
+#define E_MUTEX_ALREADY_ALLOCATED 16 // Mutex is allocated to others
+#define E_MUTEX_NOT_ALLOCATED 17 // Mutex being freed is not allocated
+#define MAXERROR	18
 
 #endif	// !JOS_INC_ERROR_H */

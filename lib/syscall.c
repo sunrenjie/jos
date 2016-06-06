@@ -114,3 +114,15 @@ sys_ipc_recv(void *dstva)
 	return syscall(SYS_ipc_recv, (uint32_t) dstva, 0, 0, 0, 0);
 }
 
+int
+sys_mutex_acquire(void *addr)
+{
+	return syscall(SYS_mutex_acquire, (uint32_t) addr, 0, 0, 0, 0);
+}
+
+int
+sys_mutex_release(void *addr)
+{
+	return syscall(SYS_mutex_release, (uint32_t) addr, 0, 0, 0, 0);
+}
+

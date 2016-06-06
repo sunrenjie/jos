@@ -35,6 +35,9 @@ static const char * const error_string[MAXERROR + 1] =
 	"invalid path",
 	"file already exists",
 	"file is not a valid executable",
+	"mutexes are exhausted",
+	"mutex is allocated to others",
+	"mutex being freed is not allocated",
 };
 
 /*

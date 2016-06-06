@@ -129,23 +129,38 @@ piperead(struct Fd *fd, void *vbuf, size_t n, off_t offset)
 	// Use _pipeisclosed to check whether the pipe is closed.
 
 	struct Pipe *p;
-	int ret = 0;
+	int i, start, available, len;
 	uint8_t *buf = (uint8_t *) vbuf;
 
+	assert(n >= 0 && offset >= 0);
+	if (n == 0)
+		return 0;
 	p = (struct Pipe *) fd2data(fd);
+	//cprintf("piperead: begining a new call ... \n");
 	while (1) {
-		assert(p->p_rpos <= p->p_wpos);
-		if (ret >= n)
-			return ret;
-		if (p->p_rpos == p->p_wpos) {
-			if (_pipeisclosed(fd, p) || ret)
-				return ret;
-			else
-				sys_yield();
-		} else {
-			*buf++ = p->p_buf[(p->p_rpos++) % PIPEBUFSIZ];
-			ret++;
+		//cprintf("piperead: begining a new loop ... \n");
+		if ((i = sys_mutex_acquire(p)) < 0) {
+			if (i == -E_MUTEX_EXHAUSTED)
+				panic("piperead: %e", i);
+			sys_yield();
+			continue;
 		}
+		//cprintf("piperead: %d. rpos=%d, wpos=%d, n=%d, offset=%d\n", 1, p->p_rpos, p->p_wpos, n, offset);
+		assert(offset >= p->p_rpos);
+		available = MIN(p->p_wpos - offset, n);
+		if (available <= 0) {
+			sys_mutex_release(p);
+			if (_pipeisclosed(fd, p))
+				return 0;
+			sys_yield();
+			continue;
+		}
+		p->p_rpos = offset;
+		for (i = 0; i < available; i++)
+			*buf++ = p->p_buf[(p->p_rpos++) % PIPEBUFSIZ];
+		sys_mutex_release(p);
+		//cprintf("piperead: %d. rpos=%d, wpos=%d, n=%d, offset=%d, available=%d\n", 2, p->p_rpos, p->p_wpos, n, offset, available);
+		return available;
 	}
 }
 
@@ -161,22 +176,47 @@ pipewrite(struct Fd *fd, const void *vbuf, size_t n, off_t offset)
 	// Use _pipeisclosed to check whether the pipe is closed.
 
 	struct Pipe *p;
-	int ret = 0;
+	int i, start, available, len, left = n;
 	uint8_t *buf = (uint8_t *) vbuf;
 
 	p = (struct Pipe *) fd2data(fd);
+	assert (n >= 0 && offset >= 0);
+	if (n == 0)
+		return 0;
+	//cprintf("pipewrite: begining a new call ... \n");
 	while (1) {
-		assert(p->p_rpos <= p->p_wpos);
-		if (ret >= n)
-			return ret;
-		if (p->p_wpos - p->p_rpos >= PIPEBUFSIZ) {
-			if (_pipeisclosed(fd, p))
-				return 0;
-			else
-				sys_yield();
+		//cprintf("pipewrite: begining a new loop ... \n");
+		if (_pipeisclosed(fd, p))
+			return 0;
+		if ((i = sys_mutex_acquire(p)) < 0) {
+			if (i == -E_MUTEX_EXHAUSTED)
+				panic("pipewrite: %e", i);
+			sys_yield();
+			continue;
+		}
+		//cprintf("pipewrite: %d. rpos=%d, wpos=%d, left=%d, offset=%d\n", 1, p->p_rpos, p->p_wpos, left, offset);
+		assert(offset >= p->p_wpos);
+		available = MIN(p->p_rpos + PIPEBUFSIZ - offset, left);
+		if (available <= 0) {
+			sys_mutex_release(p);
+			sys_yield();
+			continue;
 		} else {
-			p->p_buf[(p->p_wpos++) % PIPEBUFSIZ] = *buf++;
-			ret++;
+			p->p_wpos = offset;
+			for (i = 0; i < available; i++) {
+				p->p_buf[(p->p_wpos++) % PIPEBUFSIZ] = *buf++;
+			}
+		}
+		sys_mutex_release(p);
+		//cprintf("pipewrite: %d. rpos=%d, wpos=%d, left=%d, offset=%d, available=%d\n", 2, p->p_rpos, p->p_wpos, left, offset, available);
+		if (available < left) {
+			// prepare loop invariants
+			left -= available;
+			offset = p->p_wpos;
+			sys_yield();
+			continue;
+		} else {
+			return n;
 		}
 	}
 }

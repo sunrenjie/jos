@@ -11,6 +11,8 @@
 #include <kern/syscall.h>
 #include <kern/console.h>
 #include <kern/sched.h>
+#include <inc/mmu.h>
+#include <kern/mutex.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -218,6 +220,7 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 		page_free(p);
 		return r;
 	}
+	memset(page2kva(p), 0, PGSIZE);
 	return 0;
 }
 
@@ -378,6 +381,34 @@ to_return:
 	return ret;
 }
 
+static int
+sys_mutex_acquire(void *addr)
+{
+	physaddr_t paddr;
+	pte_t *pte;
+	struct Page *page;
+	page = page_lookup(curenv->env_pgdir, addr, &pte);
+	if (page == NULL || (*pte & (PTE_P | PTE_U)) != (PTE_P|PTE_U)) {
+		panic("  va is %08x, page is %08x, pte is %08x", addr, page, pte);
+		return -E_INVAL;
+	}
+	paddr = (physaddr_t) (PTE_ADDR(*pte) | PGOFF(addr));
+	return mutex_acquire(curenv->env_id, paddr);
+}
+
+static int
+sys_mutex_release(void *addr)
+{
+	physaddr_t paddr;
+	pte_t *pte;
+	struct Page *page;
+	page = page_lookup(curenv->env_pgdir, addr, &pte);
+	if (page == NULL || (*pte & (PTE_P | PTE_U)) != (PTE_P|PTE_U))
+		return -E_INVAL;
+	paddr = (physaddr_t) (PTE_ADDR(*pte) | PGOFF(addr));
+	return mutex_release(curenv->env_id, paddr);
+}
+
 // Block until a value is ready.  Record that you want to receive
 // using the env_ipc_recving and env_ipc_dstva fields of struct Env,
 // mark yourself not runnable, and then give up the CPU.
@@ -452,6 +483,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			(void *) a3, (unsigned) a4);
 	case SYS_ipc_recv:
 		return (int) sys_ipc_recv((void *)a1);
+	case SYS_mutex_acquire:
+		return (uint32_t) sys_mutex_acquire((void *) a1);
+	case SYS_mutex_release:
+		return (uint32_t) sys_mutex_release((void *) a1);
 	default:
 		return -E_INVAL;
 	}
