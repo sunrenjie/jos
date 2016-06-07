@@ -1,0 +1,126 @@
+
+This is our work on the labs section of the MIT EECS course 6.828, Operating
+System Engineering, the 2006 edition (https://pdos.csail.mit.edu/6.828/2006/).
+
+Here documents environment setup on Linux/Mac OS X (x86_64).
+
+=========
+Compilers
+
+We have to install 32-bit gcc compiler chain for JOS.
+
+Fedora Linux 23:
+
+Prerequisites (TODO: may need further clarification here):
+1. yum install libgcc.i686
+
+Compiling JOS:
+make -e CC='gcc -m32' -e LD='ld -m elf_i386' make-target
+
+Mac OS X 10.10.5:
+
+Prerequisites:
+1. port install i386-elf-binutils i386-elf-gcc (it is so kind for MacPorts to
+include these cross platform tools).
+
+Compiling JOS:
+env GCCPREFIX=i386-elf- make make-target
+
+========
+Emulator
+
+We use bochs version 2.6.8 for running JOS. The bochsrc files are intended for
+working with it. This is the latest version available as of this writing.
+It just works.
+
+Fedora Linux 23:
+
+The configure command lines are minimal as the default options are just fine:
+./configure --prefix=/huge/r/bin/bochs-2.6.8-with-gdb --enable-gdb-stub
+./configure --prefix=/huge/r/bin/bochs-2.6.8-debugging --enable-debugger=yes
+
+In one installation, in order to solve ./configure errors, we have to installed
+these system packages via yum:
+readline readline-devel libX11-devel glibc-devel gtk2
+
+One useful way of installing the package containing the missing file on Fedora
+Linux is by giving the file path to yum install. For example,
+'yum install /usr/include/X11/Xlib.h' will finally have
+libX11-devel-1.6.3-2.fc23.x86_64 installed.
+
+While the names and versions for the dependent packages may vary from one
+installation to another, we nevertheless keep the list here such that they may
+become useful in debugging wierd ./configure errors.
+
+$ ldd ~/bin/bochs-2.6.8-with-gdb/bin/bochs-dbg | awk '$2=="=>"{print $3}' | xargs rpm -qf | sort | uniq
+atk-2.18.0-1.fc23.x86_64
+bzip2-libs-1.0.6-17.fc23.x86_64
+cairo-1.14.2-2.fc23.x86_64
+expat-2.1.0-12.fc23.x86_64
+fontconfig-2.11.94-4.fc23.x86_64
+freetype-freeworld-2.6-1.fc23.x86_64
+gdk-pixbuf2-2.32.3-1.fc23.x86_64
+glib2-2.46.2-1.fc23.x86_64
+glibc-2.22-16.fc23.x86_64
+graphite2-1.2.4-5.fc23.x86_64
+gtk2-2.24.28-2.fc23.x86_64
+harfbuzz-1.0.6-1.fc23.x86_64
+libdatrie-0.2.8-6.fc23.x86_64
+libdrm-2.4.65-1.fc23.x86_64
+libffi-3.1-8.fc23.x86_64
+libgcc-5.3.1-6.fc23.x86_64
+libpng-1.6.19-2.fc23.x86_64
+libselinux-2.4-4.fc23.x86_64
+libstdc++-5.3.1-6.fc23.x86_64
+libthai-0.1.21-2.fc23.x86_64
+libwayland-client-1.9.0-1.fc23.x86_64
+libwayland-server-1.9.0-1.fc23.x86_64
+libX11-1.6.3-2.fc23.x86_64
+libXau-1.0.8-5.fc23.x86_64
+libxcb-1.11.1-1.fc23.x86_64
+libXcomposite-0.4.4-7.fc23.x86_64
+libXcursor-1.1.14-4.fc23.x86_64
+libXdamage-1.1.4-7.fc23.x86_64
+libXext-1.3.3-3.fc23.x86_64
+libXfixes-5.0.1-5.fc23.x86_64
+libXi-1.7.4-3.fc23.x86_64
+libXinerama-1.1.3-5.fc23.x86_64
+libXrandr-1.5.0-2.fc23.x86_64
+libXrender-0.9.9-2.fc23.x86_64
+libxshmfence-1.2-2.fc23.x86_64
+libXxf86vm-1.1.4-2.fc23.x86_64
+mesa-libEGL-11.1.0-3.20151218.fc23.x86_64
+mesa-libgbm-11.0.6-1.20151122.fc23.x86_64
+mesa-libGL-11.1.0-3.20151218.fc23.x86_64
+mesa-libglapi-11.0.6-1.20151122.fc23.x86_64
+ncurses-libs-5.9-21.20150214.fc23.x86_64
+pango-1.38.1-1.fc23.x86_64
+pcre-8.38-2.fc23.x86_64
+pixman-0.34.0-1.fc23.x86_64
+readline-6.3-6.fc23.x86_64
+zlib-1.2.8-9.fc23.x86_64
+
+Mac OS X 10.10.5:
+
+Install these packages via Macports:
+sudo port install libsdl2 gtk2 pkgconfig readline
+
+The configure command lines are:
+./configure --enable-cdrom --enable-disasm --enable-readline --with-sdl2 \
+  --without-carbon --prefix=/Users/renjiesun/bin/bochs-2.6.8 --enable-gdb-stub
+./configure --enable-cdrom --enable-disasm --enable-readline --with-sdl2 \
+  --without-carbon --prefix=/Users/renjiesun/bin/bochs-dbg-2.6.8
+  --enable-debugger
+
+Notes:
+1. Modern Mac OS X systems dropped carbon support. Always disable it and enable
+sdl2 library.
+
+
+=========
+Debuggers
+
+TODO: We have not yet successfully made gdb to work perfectly. Maybe we could
+consult later versions of the course (they use gdb+qemu).
+
+
