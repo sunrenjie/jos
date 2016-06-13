@@ -134,7 +134,8 @@ again:
 				goto runit;
 			}
 			break;
-
+		case '&':
+			goto runit;
 		case 0:		// String is complete
 			// Run the current command!
 			goto runit;
@@ -290,7 +291,7 @@ usage(void)
 void
 umain(int argc, char **argv)
 {
-	int r, interactive, echocmds;
+	int r, interactive, echocmds, i;
 
 	interactive = '?';
 	echocmds = 0;
@@ -341,10 +342,17 @@ umain(int argc, char **argv)
 		if (debug)
 			cprintf("FORK: %d\n", r);
 		if (r == 0) {
+			cprintf("Child: calling runcmd ...\n");
 			runcmd(buf);
 			exit();
-		} else
-			wait(r);
+		} else {
+			if (buf[strlen(buf) - 1] != '&')
+				wait(r);
+			else {
+				cprintf("Running command with terminal '&'\n");
+				sys_yield();
+			}
+		}
 	}
 }
 
