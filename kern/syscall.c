@@ -31,18 +31,12 @@ sys_cputs(const char *s, size_t len)
 }
 
 // Read a character from the system console.
-// Returns the character.
+// Returns the character, or 0 if none is available. Note that we cannot
+// poll endlessly ever in the kernel otherwise userland code will starve.
 static int
 sys_cgetc(void)
 {
-	int c;
-
-	// The cons_getc() primitive doesn't wait for a character,
-	// but the sys_cgetc() system call does.
-	while ((c = cons_getc()) == 0)
-		/* do nothing */;
-
-	return c;
+	return cons_getc();
 }
 
 // Returns the current environment's envid.
@@ -491,4 +485,3 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return -E_INVAL;
 	}
 }
-

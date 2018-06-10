@@ -63,7 +63,7 @@ again:
 				close(fd);
 			}
 			break;
-			
+
 		case '>':	// Output redirection
 			// Grab the filename from the argument list
 			if (gettoken(0, &t) != 'w') {
@@ -89,7 +89,7 @@ again:
 				close(fd);
 			}
 			break;
-			
+
 		case '|':	// Pipe
 			// Set up pipe redirection.
 			
@@ -184,6 +184,9 @@ runit:
 	if (r >= 0) {
 		if (debug)
 			cprintf("[%08x] WAIT %s %08x\n", env->env_id, argv[0], r);
+		// This wait is not skipped for background command via '&', which
+		// is handled in umain() waiting for the child process executing
+		// this function.
 		wait(r);
 		if (debug)
 			cprintf("[%08x] wait finished\n", env->env_id);
@@ -291,7 +294,7 @@ usage(void)
 void
 umain(int argc, char **argv)
 {
-	int r, interactive, echocmds, i;
+	int r, interactive, echocmds;
 
 	interactive = '?';
 	echocmds = 0;
@@ -355,4 +358,3 @@ umain(int argc, char **argv)
 		}
 	}
 }
-
