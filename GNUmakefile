@@ -57,7 +57,7 @@ endif
 
 # try to infer the correct QEMU
 ifndef QEMU
-%qemu qemu%: QEMU = $(shell if which qemu 2>/dev/null; then exit; \
+qemu qemu-nox qemu-gdb qemu-nox-gdb: QEMU = $(shell if which qemu 2>/dev/null; then exit; \
         elif which qemu-system-i386 2>/dev/null; then exit; \
 	else \
 	qemu=/Applications/Q.app/Contents/MacOS/i386-softmmu.app/Contents/MacOS/i386-softmmu; \
@@ -134,9 +134,13 @@ include lib/Makefrag
 include user/Makefrag
 include fs/Makefrag
 
-QEMUOPTS = -hda $(OBJDIR)/kern/kernel.img -serial mon:stdio -gdb tcp::$(GDBPORT)
+CPUS ?= 1
+
+QEMUOPTS = -drive file=$(OBJDIR)/kern/kernel.img,index=0,media=disk,format=raw -serial mon:stdio -gdb tcp::$(GDBPORT)
 QEMUOPTS += $(shell if $(QEMU) -nographic -help | grep -q '^-D '; then echo '-D qemu.log'; fi)
 QEMUOPTS += $(QEMUEXTRA)
+QEMUOPTS += -smp $(CPUS)
+QEMUOPTS += -drive file=$(OBJDIR)/fs/fs.img,index=1,media=disk,format=raw
 
 .gdbinit: .gdbinit.tmpl
 	sed "s/localhost:1234/localhost:$(GDBPORT)/" < $^ > $@
